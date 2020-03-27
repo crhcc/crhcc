@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Data.Odbc;
+using System.Data.OleDb;
+using System.Collections;
+using System.Data;
+using System.Xml;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
+using DotNetARX;
+
+namespace Readfile
+{
+    class Polygon
+    {
+        public ArrayList Parts = new ArrayList();
+        public ArrayList Points = new ArrayList();
+        public int NumPoints = 0;
+    }
+    class Point
+    {
+        public double X;
+        public double Y;
+    }
+    public class ShapeFile
+    {
+        [CommandMethod("LoadShapefile")]
+        public void LoadShapeFile()
+        {
+            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            //加载shape file文件
+            string filepath = @"C:\homework\shapefile\parcel2.shp";
+            FileStream fs = new FileStream(filepath, FileMode.Open, FileAccess.Read);//文件流形式
+            BinaryReader br = new BinaryReader(fs);//打开二进制文件
+            br.ReadBytes(24);
+            int FileLength = br.ReadInt32();
+            //ed.WriteMessage("文件长度:" + ChangeByteOrder(FileLength));
+            int FileBanben = br.ReadInt32();
+            //ed.WriteMessage("文件长度:" + ChangeByteOrder(FileBanben));
+            int ShapeType = br.ReadInt32();
+            double xmin = br.ReadDouble();
+            double ymin = br.ReadDouble();
+            double xmax = br.ReadDouble();
+            double ymax = br.ReadDouble();
+            ed.WriteMessage("Xmin:" + xmin + "\n");
+            ed.WriteMessage("Ymin:" + ymin + "\n");
+            ed.WriteMessage("Xmax:" + xmax + "\n");
+            ed.WriteMessage("Ymax:" + ymax + "\n");
+            br.ReadBytes(40);
+            Polygon polygon = new Polygon();//创建类面的新对象
+            polygon.Parts = new ArrayList();
+            polygon.Points = new ArrayList();
+            polygon.NumPoints = br.ReadInt32();
+            ed.WriteMessage("坐标点个数:" + polygon.NumPoints + "\n");
+            double[] xpoints = new double[polygon.NumPoints];
+            double[] ypoints = new double[polygon.NumPoints];
+            br.ReadBytes(44);
+            ed.WriteMessage("Points数组:" + "\n");
+            for (int j = 0; j < polygon.NumPoints; j++)
+            {
+                Point pointtemp = new Point();
+                xpoints[j]=pointtemp.X = br.ReadDouble();
+                ypoints[j]=pointtemp.Y = br.ReadDouble();
+                polygon.Points.Add(pointtemp);
+                ed.WriteMessage("Points[" + j + "]:" + pointtemp.X + " " + pointtemp.Y + "\n");
+            }
+            ed.WriteMessage("--------------------------");
+            //开始在cad中绘制图形
+            ArrayList sz = polygon.Points;
+            Database db = HostApplicationServices.WorkingDatabase;
+            Polyline polyline = new Polyline();
+            
+            using (Transaction trans = db.TransactionManager.StartTransaction())
+            {
+                for (int i = 0; i < sz.Count; i++)
+                {
+                    polyline.AddVertexAt(i, new Point2d(xpoints[i],ypoints[i]), 0, 0, 0);
+                }
+                polyline.Closed = true;
+                db.AddToModelSpace(polyline);
+                trans.Commit();
+            }
+        }
+    }
+}
