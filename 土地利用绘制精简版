@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Data;
+using System.IO;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Runtime;
+using DotNetARX;
+using System.IO;
+using System.Data.OleDb;
+using System.Data.Odbc;
+using System.Data;
+using System.Collections;
+using System.Runtime.InteropServices;
+using Autodesk.AutoCAD.Geometry;
+using Polenter.Serialization;
+
+namespace link_to_cad
+{
+    class Polygon
+    {
+        public ArrayList Parts = new ArrayList();
+        public ArrayList Points = new ArrayList();
+        public int NumPoints = 0;
+    }
+    public class Class1
+    {
+        private OleDbConnection Conn;
+        private OleDbCommand cmd;
+        //private OdbcConnection Conn;
+        //private OdbcCommand cmd;
+        [CommandMethod("Access")]
+        public void Access()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            string ConnStr = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=C:\\DLTB.mdb";
+            Conn = new OleDbConnection(ConnStr);
+            Conn.Open();
+            string select = "select SHAPE from DLTB";
+            OleDbCommand command = new OleDbCommand(select, Conn);
+            OleDbDataReader dr = command.ExecuteReader();
+            dr.Read();
+            byte[] buff = null;
+            buff = (byte[])dr["SHAPE"];
+            IntPtr addoflongvalue = Marshal.AllocHGlobal(buff.Length);
+            Marshal.Copy(buff, 0, addoflongvalue, buff.Length);
+            char[] cBuff = new char[buff.Length];
+            Marshal.Copy(addoflongvalue, cBuff, 0, buff.Length);
+            Marshal.FreeHGlobal(addoflongvalue);
+            long IDataSize = cBuff.ToArray().Length;
+
+            //开始在cad中绘制图形
+            ArrayList sz = polygon.Points;
+            Database db = HostApplicationServices.WorkingDatabase;
+            Polyline polyline = new Polyline();
+
+            using (Transaction trans = db.TransactionManager.StartTransaction())
+            {
+                for (int i = 0; i < sz.Count; i++)
+                {
+                    polyline.AddVertexAt(i, new Point2d(xpoints[i], ypoints[i]), 0, 0, 0);
+                }
+                polyline.Closed = true;
+                db.AddToModelSpace(polyline);
+                trans.Commit();
+            }
+            // 定义一个可序列化类SerilizePoint的列表
+            List<SerilizePoint> points = new List<SerilizePoint>();
+            List<DBPoint> ptsInCAD = new List<DBPoint>();
+            // 声明一个二进制序列化对象
+            SharpSerializer serializer = new SharpSerializer(true);
+            // 将Points.bin文件中保存的点坐标反序列化为SerilizePoint列表
+            points = serializer.Deserialize(Tools.GetCurrentPath() + "F:\\test") as List<SerilizePoint>;
+
+            foreach (var point in points) //遍历SerilizePoint列表以创建AutoCAD点
+            {
+                ptsInCAD.Add(new DBPoint(new Point3d(point.x, point.y, point.z)));
+            }
+            Database db = HostApplicationServices.WorkingDatabase;
+            using (Transaction trans = db.TransactionManager.StartTransaction())
+            {
+                db.AddToModelSpace(ptsInCAD.ToArray()); // 添加点到AutoCAD中
+                trans.Commit();
+            }
+        }
+    }
+}
