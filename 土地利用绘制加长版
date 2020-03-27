@@ -1,0 +1,251 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Data;
+using System.IO;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Runtime;
+using DotNetARX;
+using System.IO;
+using System.Data.OleDb;
+using System.Data.Odbc;
+using System.Data;
+using System.Collections;
+using System.Runtime.InteropServices;
+using Autodesk.AutoCAD.Geometry;
+using Polenter.Serialization;
+
+namespace link_to_cad
+{
+    class Polygon
+    {
+        public ArrayList Parts = new ArrayList();
+        public ArrayList Points = new ArrayList();
+        public int NumPoints = 0;
+    }
+    class Point
+    {
+        public double X;
+        public double Y;
+    }
+    [Serializable]
+    public class SerilizePoint
+    {
+        public double x { get; set; }
+        public double y { get; set; }
+        public double z { get; set; }
+    }
+    public class Class1
+    {
+        private OleDbConnection Conn;
+        private OleDbCommand cmd;
+        //private OdbcConnection Conn;
+        //private OdbcCommand cmd;
+        [CommandMethod("Access")]
+        public void Access()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            Editor ed = doc.Editor;
+            //新建一个指向DLTB.mdb数据库的数据集
+            //using (var ds = new DLTBDataSet())
+            //{
+            //    //创建用于DLTB表的DataAdapter
+            //    var dltbAdapter = new DLTBDataSetTableAdapters.DLTBTableAdapter();
+            //    //填充数据集中的DLTB表
+            //    //dltbAdapter.Fill(ds.DLTB);
+            //    //ArrayList shape = new ArrayList();
+            //    var shape = (from c in ds.DLTB
+            //                 select c.SHAPE);
+
+            string ConnStr = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=C:\\DLTB.mdb";
+            Conn = new OleDbConnection(ConnStr);
+            Conn.Open();
+            string select = "select SHAPE from DLTB";
+            OleDbCommand command = new OleDbCommand(select, Conn);
+            OleDbDataReader dr = command.ExecuteReader();
+            dr.Read();
+            //byte[] image_bytes = (byte[])dr.GetValue(0);
+            //MemoryStream ms = new System.IO.MemoryStream(image_bytes);
+            //int n= Convert.ToInt32(ms.Length.ToString());
+            //ms.Position = 0;
+            //byte[] pReadByte = new Byte[n];
+            //ms.Read(pReadByte, 0, n);              
+
+            //cmd.Parameters.Add("BLOB", OleDbType.Binary).Value = pReadByte;
+            //cmd.ExecuteNonQuery();
+            
+
+            
+            //dr.Read();
+            //string shapecontent = "";
+            byte[] outByte = new byte[100];
+            //outByte = (byte[])dr["SHAPE"];
+            //while (dr.Read())
+            //{
+            //    Buff = (byte[])dr["SHAPE"];
+            //    dr.GetBytes(0, 0, Buff, 0, 1000);
+            //    shapecontent += Encoding.Unicode.GetString(Buff);                           
+            //}
+            int bufferSize = 100;
+            BinaryWriter writer;
+            int i = 0;
+            while (dr.Read())
+            {
+                string filename = "F:\\testfile"+ i.ToString() + ".bmp";
+                
+                FileStream fs = new FileStream(filename, FileMode.OpenOrCreate, FileAccess.Write);
+                writer = new BinaryWriter(fs);
+                int startIndex = 0;
+                long retval = dr.GetBytes(0, startIndex, outByte, 0, bufferSize);
+                while (retval == bufferSize)
+                {
+                    writer.Write(outByte);
+                    writer.Flush();
+
+                    startIndex += bufferSize;
+                    retval = dr.GetBytes(0, startIndex, outByte, 0, bufferSize);
+                }
+
+                writer.Write(outByte, 0, (int)retval);
+                writer.Flush();
+
+                writer.Close();
+                fs.Close();
+
+                i++;
+
+            }
+            dr.Close();
+        }
+            
+                //byte[] buff=null;
+                //buff = (byte[])dr["SHAPE"];
+                ////ed.WriteMessage(buff + "\n" + "--------------");
+                //IntPtr addoflongvalue = Marshal.AllocHGlobal(buff.Length);
+                //Marshal.Copy(buff, 0, addoflongvalue, buff.Length);
+                //char[] cBuff = new char[buff.Length];
+                //Marshal.Copy(addoflongvalue, cBuff, 0, buff.Length);
+                //Marshal.FreeHGlobal(addoflongvalue);
+                //long IDataSize = cBuff.ToArray().Length;
+            
+                //ed.WriteMessage(cBuff.ToString());
+                
+                ////ed.WriteMessage("**************" + addoflongvalue+"\n"+cBuff);
+                ////MemoryStream ms = new MemoryStream(buff);
+                ////ed.WriteMessage("****"+ms + "****");
+                //if (dr.Read())
+                //{
+                //    buff = (byte[])dr["SHAPE"];
+                //}
+
+            //if (System.IO.File.Exists("F:\\test.shp"))
+            //    System.IO.File.Delete("F:\\test.shp");
+
+            //System.IO.FileStream stream = new System.IO.FileStream("F:\\test.shp", System.IO.FileMode.CreateNew, System.IO.FileAccess.Write);
+            //System.IO.BinaryWriter bw = new System.IO.BinaryWriter(stream);
+            //bw.Write(shapecontent);
+            //bw.Close();
+            //stream.Close();
+
+
+            ////加载shape file文件
+            //string filepath = @"F:\test";
+            //FileStream fs = new FileStream(filepath, FileMode.Open, FileAccess.Read);//文件流形式
+            //BinaryReader br = new BinaryReader(fs);//打开二进制文件
+            //br.ReadBytes(32);
+            //int FileLength = br.ReadInt32();
+            ////ed.WriteMessage("文件长度:" + ChangeByteOrder(FileLength));
+            //int FileBanben = br.ReadInt32();
+            ////ed.WriteMessage("文件长度:" + ChangeByteOrder(FileBanben));
+            //int ShapeType = br.ReadInt32();
+            //double xmin = br.ReadDouble();
+            //double ymin = br.ReadDouble();
+            //double xmax = br.ReadDouble();
+            //double ymax = br.ReadDouble();
+            //ed.WriteMessage("Xmin:" + xmin + "\n");
+            //ed.WriteMessage("Ymin:" + ymin + "\n");
+            //ed.WriteMessage("Xmax:" + xmax + "\n");
+            //ed.WriteMessage("Ymax:" + ymax + "\n");
+            ////br.ReadBytes(32);
+            //Polygon polygon = new Polygon();//创建类面的新对象
+            //polygon.Parts = new ArrayList();
+            //polygon.Points = new ArrayList();
+            //polygon.NumPoints = br.ReadInt32();
+            //ed.WriteMessage("坐标点个数:" + polygon.NumPoints + "\n");
+            ////List<double> xpoints = new List<double>();
+            ////List<double> ypoints = new List<double>();
+            //double[] xpoints = new double[polygon.NumPoints];
+            //double[] ypoints = new double[polygon.NumPoints];
+            //long fileLength = fs.Length;
+            //ed.WriteMessage(fileLength + "\n");
+            ////br.ReadBytes(44);
+            //ed.WriteMessage("Points数组:" + "\n");
+            //for (int j = 0; j < polygon.NumPoints; j++)
+            //{
+            //    Point pointtemp = new Point();
+            //    xpoints[j] = pointtemp.X = br.ReadDouble();
+            //    ypoints[j] = pointtemp.Y = br.ReadDouble();
+            //    polygon.Points.Add(pointtemp);
+            //    ed.WriteMessage("Points[" + j + "]:" + pointtemp.X + " " + pointtemp.Y + "\n");
+            //}
+            //ed.WriteMessage("--------------------------");
+            ////开始在cad中绘制图形
+            //ArrayList sz = polygon.Points;
+            //Database db = HostApplicationServices.WorkingDatabase;
+            //Polyline polyline = new Polyline();
+
+            //using (Transaction trans = db.TransactionManager.StartTransaction())
+            //{
+            //    for (int i = 0; i < sz.Count; i++)
+            //    {
+            //        polyline.AddVertexAt(i, new Point2d(xpoints[i], ypoints[i]), 0, 0, 0);
+            //    }
+            //    polyline.Closed = true;
+            //    db.AddToModelSpace(polyline);
+            //    trans.Commit();
+            //}
+
+
+
+                //// 定义一个可序列化类SerilizePoint的列表
+                //List<SerilizePoint> points = new List<SerilizePoint>();
+                //List<DBPoint> ptsInCAD = new List<DBPoint>();
+                //// 声明一个二进制序列化对象
+                //SharpSerializer serializer = new SharpSerializer(true);
+                //// 将Points.bin文件中保存的点坐标反序列化为SerilizePoint列表
+                //points = serializer.Deserialize(Tools.GetCurrentPath() + "F:\\test") as List<SerilizePoint>;
+
+                //foreach (var point in points) //遍历SerilizePoint列表以创建AutoCAD点
+                //{
+                //    ptsInCAD.Add(new DBPoint(new Point3d(point.x, point.y,point.z)));
+                //}
+                //Database db = HostApplicationServices.WorkingDatabase;
+                //using (Transaction trans = db.TransactionManager.StartTransaction())
+                //{
+                //    db.AddToModelSpace(ptsInCAD.ToArray()); // 添加点到AutoCAD中
+                //    trans.Commit();
+                //}
+
+
+                //List<DBPoint> ptsInCAD = new List<DBPoint>(); // 创建CAD点列表
+                //string fileName = "F:\\test.txt"; // 打开文本文件
+                //if (File.Exists(fileName)) // 如果文件存在
+                //{
+                //    string[] strLines = File.ReadAllLines(fileName); // 读取文本文件的所有行
+                //    foreach (string strLine in strLines) // 遍历文本
+                //    {
+                //        Point3d pt = strLine.StringToPoint3d(); // 将文本行的数据转换为Point3d            
+                //        ptsInCAD.Add(new DBPoint(pt)); // 创建AutoCAD点并添加到列表中
+                //    }
+                //}
+                //Database db = HostApplicationServices.WorkingDatabase;
+                //using (Transaction trans = db.TransactionManager.StartTransaction())
+                //{
+                //    db.AddToModelSpace(ptsInCAD.ToArray()); // 添加点到AutoCAD中
+                //    trans.Commit();
+                //}
+        }          
+            }
