@@ -1,0 +1,102 @@
+const cookieName = '芒果TV'//改名称
+const signurlKey = 'chavy_signurl_mgtv'
+const signheaderKey = 'chavy_signheader_mgtv'
+const chavy = init()
+const signurlVal = chavy.getdata(signurlKey)
+const signheaderVal = chavy.getdata(signheaderKey)
+
+sign()
+
+function sign() {
+  const url = { url: signurlVal, headers: JSON.parse(signheaderVal) }
+  url.body = '{}'
+  chavy.post(url, (error, response, data) => {
+    chavy.log(`${cookieName}, data: ${data}`)
+    const title = `${cookieName}`
+    let subTitle = ''
+    let detail = ''
+    
+    //二选一
+    const result = JSON.parse(data.match(/\(([^\)]*)\)/)[1])//数组类型
+    const res = JSON.parse(data)//非数组
+    
+    //三选一
+    //---1
+    if (result.code == 200) {
+      subTitle = `签到结果: 成功`
+      detail = `共签: ${result.data.curDay}天, 连签: ${result.data.curDayTotal}天, 积分: ${result.data.balance} +${result.data.credits}）`
+    } else if (result.code == 1002) {
+      subTitle = `签到结果: 成功 (重复签到)`
+    } else {
+      subTitle = `签到结果: 失败`
+      detail = `编码: ${result.code}, 说明: ${result.msg}`
+    }
+    //---2
+    if (res.status == 1) {
+      subTitle = `签到结果: 成功`
+    } else {
+      subTitle = `签到结果: 失败`
+      detail = `状态: ${res.message}`
+    }
+    
+    chavy.msg(title, subTitle, detail)
+    chavy.done()
+  })
+}
+//---3
+const has_checked = result.today_status.has_checked
+    const continuous_check_in_count = result.continuous_check_in_count
+    const status = result.auto_check.status
+    if (status == "success") {
+      subTitle = `签到结果: 成功`
+      detail = `连续签到天数${continuous_check_in_count}`
+    } else if (has_checked == false) {
+      subTitle = `签到结果: 重复`
+    }
+    else if (has_checked == false) {
+      subTitle = `签到结果: 失败`
+    }
+//以下照抄
+function init() {
+  isSurge = () => {
+    return undefined === this.$httpClient ? false : true
+  }
+  isQuanX = () => {
+    return undefined === this.$task ? false : true
+  }
+  getdata = (key) => {
+    if (isSurge()) return $persistentStore.read(key)
+    if (isQuanX()) return $prefs.valueForKey(key)
+  }
+  setdata = (key, val) => {
+    if (isSurge()) return $persistentStore.write(key, val)
+    if (isQuanX()) return $prefs.setValueForKey(key, val)
+  }
+  msg = (title, subtitle, body) => {
+    if (isSurge()) $notification.post(title, subtitle, body)
+    if (isQuanX()) $notify(title, subtitle, body)
+  }
+  log = (message) => console.log(message)
+  get = (url, cb) => {
+    if (isSurge()) {
+      $httpClient.get(url, cb)
+    }
+    if (isQuanX()) {
+      url.method = 'GET'
+      $task.fetch(url).then((resp) => cb(null, {}, resp.body))
+    }
+  }
+  post = (url, cb) => {
+    if (isSurge()) {
+      $httpClient.post(url, cb)
+    }
+    if (isQuanX()) {
+      url.method = 'POST'
+      $task.fetch(url).then((resp) => cb(null, {}, resp.body))
+    }
+  }
+  done = (value = {}) => {
+    $done(value)
+  }
+  return { isSurge, isQuanX, msg, log, getdata, setdata, get, post, done }
+}
