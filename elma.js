@@ -16,8 +16,8 @@ function sign() {
     let subTitle = ''
     let detail = ''
     const res = JSON.parse(data)
-    if (res.statusCode == 200) {
-                        subTitle = `签到结果: 成功`
+    if (result && result.has_signed_in_today) {
+                        res.data.notify = `[${config.eleme.name}] 今日已签到🎉`;
                         detail = `共签: ${result.data.current_day}天`
                       } else if (result.code == 1002) {
       subTitle = `签到结果: 成功 (重复签到)`   
