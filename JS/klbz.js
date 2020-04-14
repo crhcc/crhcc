@@ -1,7 +1,7 @@
 /*
 [rewrite_local]
 #克拉壁纸一次性解锁内购（by crhcc）
-^https:\/\/charitywallpaper\.com\.com\/clarity\/api\.userinfo url script-response-body crhcc/JS/klbz.js
+^https:\/\/charitywallpaper\.com\/clarity\/api\/userinfo url script-response-body crhcc/JS/klbz.js
 
 [MITM]
 hostname:charitywallpaper.com
