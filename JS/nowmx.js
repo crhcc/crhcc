@@ -1,6 +1,6 @@
 /*
 [rewrite_local]
-#美颜相机一次性解锁内购（by黑黑酱）
+#now冥想一次性解锁内购（by crhcc）
 ^https:\/\/nowapi\.navoinfo\.cn\/my_vip url script-response-body crhcc/JS/nowmx.js
 ^https:\/\/nowapi\.navoinfo\.cn\/user url script-response-body crhcc/JS/nowmx.js
 ^https:\/\/nowapi\.navoinfo\.cn\/get_sections_list_* url script-response-body crhcc/JS/nowmx.js
