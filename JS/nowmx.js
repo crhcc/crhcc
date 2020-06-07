@@ -12,7 +12,7 @@ hostname:nowapi.navoinfo.cn
 */
 //re('"is_vip":\\d@"end_time":\\d+','"is_vip":1@"end_time":1741575902')
 //re('"is_vip":\\d@"vip_expires":\\d+@"point_expires_time":\\d','"is_vip":1@"vip_expires":1900839229@"point_expires_time":1900839229@"');
-re('"vip_forever":\\w+@"free":\\w+'@"end_at":\\d+'@"vip_over_days":\\d'@"vip_over_time":\\d+'@"vip_type":\\w+'@"vip_status_text":\\w+','"vip_forever":true@"free":true'@"end_at":2025-03-01 15:29:41'@"vip_over_days":999'@"vip_over_time":2025-03-01 15:29:41'@"vip_type":forever'@"vip_status_text":永久会员')
+re('"vip_forever":\\w+@"free":\\w+'@"end_at":'@"vip_over_days":\\d'@"vip_over_time":'@"vip_type":'@"vip_status_text":\\w+','"vip_forever":true@"free":true'@"end_at":2025-03-01 15:29:41'@"vip_over_days":999'@"vip_over_time":2025-03-01 15:29:41'@"vip_type":forever'@"vip_status_text":永久会员')
 
 
 function re() {
