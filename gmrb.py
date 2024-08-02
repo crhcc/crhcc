@@ -67,8 +67,8 @@ def jifen():
     xiaoku=json.loads(response.text)
     print('签到成功'+str(xiaoku["data"]["msg"]))
     # print(response.text)
-    #tongzhi='\n目前积分为'+jifen1+'\n签到天数为'+str(xiaoku["data"]["continuesDay"])
-    #return tongzhi
+    tongzhi=str(xiaoku["data"]["statusCode"])
+    return tongzhi
   except:
     print('积分查询失败，检查变量是否正确')
 
