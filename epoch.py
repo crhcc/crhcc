@@ -53,19 +53,18 @@ def sign():
 
 def jifen():
   try:
-    url = "https://sbe.tzcul.com/webapi/Api/tosign"
+    url = "https://sbe.tzcul.com/webapi/Api/getSbeUser?token=d2ba1d4cff8eaec62f001d4e10d9c64a5ae1ba44559e0c9d26c3f53d94a9239c"
 
     headers = {
       'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
-      'token' : tk
     }
 
     response = requests.get(url, headers=headers)
     xiaoku=json.loads(response.text)
     print('签到成功'+str(xiaoku["data"]["msg"]))
     # print(response.text)
-    #tongzhi=str(xiaoku["data"]["score"])
-    #return tongzhi
+    tongzhi=str(xiaoku["data"]["score"])
+    return tongzhi
   except:
     print('积分查询失败，检查变量是否正确')
 
