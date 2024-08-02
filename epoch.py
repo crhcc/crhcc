@@ -88,32 +88,31 @@ if __name__ == "__main__":
     content=''
     for value in values:
         try:
-            beizhu = value.split('#')[0]
-            tk = value.split('#')[1]
+            beizhu, tk = value.split('#')
             print(f"处理账号: {beizhu}")
+            
+            # 签到
             sign_result = sign(tk)
+            sign_status = "成功" if "今天已签到" in sign_result else "失败"
+            
+            # 查询积分
             jifen_result = jifen(tk)
-            content += f"\n==== {beizhu} 账号签到情况 ====\n"
-            content += f"签到结果: {sign_result}\n"
-            content += f"积分情况: {jifen_result}\n"
-            content += "----------------------\n"
+            
+            # 构建简洁的通知内容
+            account_content = f"{beizhu}: 签到{sign_status}, {jifen_result}\n"
+            content += account_content
+            print(account_content)
+        
         except Exception as e:
-            print(f"处理 {beizhu} 账号时出错: {str(e)}")
-            content += f"\n==== {beizhu} 账号处理失败 ====\n"
-            content += f"错误: {str(e)}\n"
-            content += "----------------------\n"
+            error_msg = f"{beizhu}: 处理失败 - {str(e)}\n"
+            content += error_msg
+            print(error_msg)
+    
     # 在load_send中获取导入的send函数
     send = load_send()
-    print()
-
-    
-    print('------运行结束-------')
-    #content=content+'\n签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15\n'
-    content=content+'\n所有账号运行完毕\n'
-    #print('签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15')
-     # 判断send是否可用再进行调用
-    print()
     if send:
-        send('epoch签到推送', content)
+        send('epoch签到推送', content.strip())
     else:
         print('通知服务不可用')
+    
+    print('------运行结束-------')
