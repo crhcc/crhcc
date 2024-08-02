@@ -1,4 +1,4 @@
-#微信小程序：epoch壹宝玩具
+#微信小程序：eeka
 
 #青龙变量eeka格式为  备注#tk
 #多账号换行
@@ -42,14 +42,13 @@ def check_internet():
 def sign(tk):
   url = "https://mallapplet.prd.eeka.com.cn/mallApplet/cci/getMemberGiftListCheckIn?activityCode=H20240730000003"
   headers = {
-        'Accept-Encoding' : "gzip,compress,br,deflate",
-        'content-type' : "application/json",
-        'Connection' : "keep-alive",
-        'Referer' : "https://servicewechat.com/wxd4ba34bbd7657253/77/page-frame.html",
-        'Host' : "mallapplet.prd.eeka.com.cn",
-        'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
-        'x-sso-sessionid' : "2_1",
-        'token' : tk
+    'Accept-Encoding' : "gzip,compress,br,deflate",
+    'content-type' : "application/x-www-form-urlencoded",
+    'Connection' : "keep-alive",
+    'Referer' : "https://servicewechat.com/wxd4ba34bbd7657253/77/page-frame.html",
+    'Host' : "mallapplet.prd.eeka.com.cn",
+    'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
+    'token' : tk
   }
   
   #print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
