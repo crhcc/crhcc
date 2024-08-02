@@ -50,8 +50,7 @@ def sign(tk):
     'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN"
   }
   data = {
-        'token': tk,
-        'day': '1'
+        'token': tk
     }
   #print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
   response = requests.get(url, headers=headers, params=data)
