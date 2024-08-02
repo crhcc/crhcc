@@ -57,7 +57,7 @@ def sign(auth):
     
     #print(f"发送签到请求: URL={url}, Headers={headers}")
     response = requests.get(url, headers=headers)
-    print(f"签到响应: {response.text}")
+    #print(f"签到响应: {response.text}")
     
     # Parse the JSON response
     response_data = json.loads(response.text)
@@ -87,10 +87,13 @@ def jifen(auth):
     try:
         response = requests.get(url, headers=headers)
         xiaoku = json.loads(response.text)
-        tongzhi=str(xiaoku["data"]["data"])
-        return tongzhi
-    except:
-        print('积分查询失败')
+        if xiaoku["code"] == 1 and "data" in xiaoku:
+            score = xiaoku["data"]["data"]["score"]
+            return f"当前积分: {score}"
+        else:
+            return "积分查询失败"
+    except Exception as e:
+        return "积分查询错误"
 
 
 
@@ -105,8 +108,8 @@ if __name__ == "__main__":
             print(f"处理账号: {beizhu}")
             
             # 签到
-            sign_result = sign(auth)
-            sign_status = "成功" if "今天已签到" in sign_result else "失败"
+            #sign_result = sign(auth)
+            #sign_status = "成功" if "今天已签到" in sign_result else "失败"
             
             # 查询积分
             jifen_result = jifen(auth)
