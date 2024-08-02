@@ -53,10 +53,10 @@ def sign(tk):
         'token': tk,
         'day': '1'
     }
-    print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
-    response = requests.get(url, headers=headers, params=data)
-    print(f"签到响应: {response.text}")
-    return response.text
+  print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
+  response = requests.get(url, headers=headers, params=data)
+  print(f"签到响应: {response.text}")
+  return response.text
 
 def jifen(tk):
     url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
