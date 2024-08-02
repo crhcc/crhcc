@@ -55,7 +55,7 @@ def sign(auth):
         'Authorization': auth
     }
     
-    print(f"发送签到请求: URL={url}, Headers={headers}")
+    #print(f"发送签到请求: URL={url}, Headers={headers}")
     response = requests.get(url, headers=headers)
     print(f"签到响应: {response.text}")
     
@@ -79,20 +79,18 @@ def sign(auth):
 
 
 def jifen(auth):
-    url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={auth}"
+    url = "https://7.wawo.cc/api/score/wx/score/queryAmount"
     headers = {
         'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
+        'Authorization': auth    
     }
     try:
         response = requests.get(url, headers=headers)
         xiaoku = json.loads(response.text)
-        if xiaoku["code"] == 1 and "data" in xiaoku:
-            score = xiaoku["data"]["data"]["score"]
-            return f"当前积分: {score}"
-        else:
-            return "积分查询失败"
-    except Exception as e:
-        return "积分查询错误"
+        tongzhi=str(xiaoku["data"]["data"])
+        return tongzhi
+    except:
+        print('积分查询失败')
 
 
 
