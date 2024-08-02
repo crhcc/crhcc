@@ -34,17 +34,18 @@ def load_send():
 
 
 def sign():
-  url = "https://h5.youzan.com/wscump/checkin/checkinV2.json?checkinId=3997371"
+  url = "https://gtj-api.shiseidochina.cn/api/v1/app/user/login"
   headers = {
-    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090b11) XWEB/9129",
-    'xweb_xhr': "1",
-    'extra-data': sid,
-    'sec-fetch-site': "cross-site",
-    'sec-fetch-mode': "cors",
-    'sec-fetch-dest': "empty",
-    'referer': "https://servicewechat.com/wx5508c9ab0d2118ff/63/page-frame.html",
-    'accept-language': "zh-CN,zh;q=0.9",
-    'Cookie': "KDTWEAPPSESSIONID="+sid
+    'x-ma-c' : ddc266d3ce1e2dde2398bcfdb71f0e78,
+    'x-auth-token' : tk,
+    'Connection' : keep-alive,
+    'content-type' : application/json;charset=UTF-8,
+    'x-shop-c' : gtj,
+    'Host' : gtj-api.shiseidochina.cn,
+    'Accept-Encoding' : gzip,compress,br,deflate,
+    'User-Agent' : Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN,
+    'Referer' : https://servicewechat.com/wxbeb52e1c3bd2e11c/79/page-frame.html
+
   }
 
   response = requests.get(url, headers=headers)
@@ -54,49 +55,33 @@ def sign():
   return response.text
 
 def jifen():
-  url = "https://h5.youzan.com/wscump/pointstore/getCustomerPoints.json"
 
-  headers = {
-    'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090b11) XWEB/9129",
-    'Cookie': "KDTWEAPPSESSIONID="+sid
-  }
-
-  response = requests.get(url, headers=headers)
-  time.sleep(2)
-  # print(response.text)
-  try:
-    xiaoku=json.loads(response.text)
-    jifen1=str(xiaoku["data"]["currentAmount"])
-    print('目前积分为'+jifen1)
-    time.sleep(2)
-
-    url = "https://h5.youzan.com/wscump/checkin/get_activity_by_yzuid_v2.json?checkinId=3997371"
+    url = "https://gtj-api.shiseidochina.cn/api/v1/mission/accept/reward"
 
     headers = {
-      'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090b11) XWEB/9129",
-      'extra-data': "sid="+sid,
-      'Cookie': "KDTWEAPPSESSIONID="+sid
+      'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
+      'x-auth-token' : tk
     }
 
     response = requests.get(url, headers=headers)
     xiaoku=json.loads(response.text)
-    print('目前签到天数为'+str(xiaoku["data"]["continuesDay"]))
+    print('签到成功'+str(xiaoku["data"]["msg"]))
     # print(response.text)
-    tongzhi='\n目前积分为'+jifen1+'\n签到天数为'+str(xiaoku["data"]["continuesDay"])
-    return tongzhi
+    #tongzhi='\n目前积分为'+jifen1+'\n签到天数为'+str(xiaoku["data"]["continuesDay"])
+    #return tongzhi
   except:
     print('积分查询失败，检查变量是否正确')
 
 
 
 if __name__ == "__main__":
-    var_name='qdwxcxcookie' 
+    var_name='tk' 
     values = os.getenv(var_name)
     values=values.split('\n')
     content=''
     for value in values:
         beizhu=value.split('#')[0];
-        sid=value.split('#')[1];
+        tk=value.split('#')[1];
         print('-------开始' + str(beizhu) + '签到------')
         content=content+'\n===='+str(beizhu)+'账号签到情况====\n'
         content=content+str(sign())
