@@ -31,7 +31,7 @@ def load_send():
 
 
 
-def sign():
+def sign(tk):
   url = "https://sbe.tzcul.com/webapi/Api/tosign"
   headers = {
     'Accept-Encoding' : "gzip,compress,br,deflate",
@@ -51,9 +51,9 @@ def sign():
   time.sleep(2)
   return response.text
 
-def jifen():
+def jifen(tk):
   try:
-    url = "https://sbe.tzcul.com/webapi/Api/getSbeUser?token=d2ba1d4cff8eaec62f001d4e10d9c64a5ae1ba44559e0c9d26c3f53d94a9239c"
+    url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
 
     headers = {
       'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
@@ -80,9 +80,9 @@ if __name__ == "__main__":
         tk=value.split('#')[1];
         print('-------开始' + str(beizhu) + '签到------')
         content=content+'\n===='+str(beizhu)+'账号签到情况====\n'
-        content=content+str(sign())
+        content=content+str(sign(tk))
         print('-------开始' + str(beizhu) + '查询积分------')
-        content=content+str(jifen())
+        content=content+str(jifen(tk))
         content=content+'\n----------------------\n'
     # 在load_send中获取导入的send函数
     send = load_send()
