@@ -1,6 +1,6 @@
-#微信小程序：epoch壹宝玩具
+#微信小程序：所有女生
 
-#青龙变量gmrb格式为  备注#tk
+#青龙变量syns格式为  备注#auth
 #多账号换行
 #小库脚本!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -39,26 +39,47 @@ def check_internet():
     if not check_internet():
         print("警告: 无法连接到互联网!")
 
-def sign(tk):
-  url = "https://sbe.tzcul.com/webapi/Api/tosign"
-  headers = {
-    'Accept-Encoding' : "gzip,compress,br,deflate",
-    'content-type' : "application/x-www-form-urlencoded",
-    'Connection' : "keep-alive",
-    'Referer' : "https://servicewechat.com/wx62db64ee8524c34c/21/page-frame.html",
-    'Host' : "sbe.tzcul.com",
-    'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN"
-  }
-  data = {
-        'token': tk
-    }
-  #print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
-  response = requests.get(url, headers=headers, params=data)
-  print(f"签到响应: {response.text}")
-  return response.text
+import requests
+import json
 
-def jifen(tk):
-    url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
+def sign(auth):
+    url = "https://7.wawo.cc/api/operate/wx/rewards/task/all"
+    
+    headers = {
+        'Accept-Encoding': 'gzip,compress,br,deflate',
+        'content-type': 'application/json',
+        'Connection': 'keep-alive',
+        'Referer': 'https://servicewechat.com/wx7d1403fe84339669/1094/page-frame.html',
+        'Host': '7.wawo.cc',
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.42(0x18002a32) NetType/WIFI Language/zh_CN',
+        'Authorization': auth
+    }
+    
+    print(f"发送签到请求: URL={url}, Headers={headers}")
+    response = requests.get(url, headers=headers)
+    print(f"签到响应: {response.text}")
+    
+    # Parse the JSON response
+    response_data = json.loads(response.text)
+    
+    # Check if the sign-in was successful
+    if response_data['success'] and response_data['code'] == "000":
+        # Find the "每日签到" task in oldRewardTaskList
+        daily_sign_task = next((task for task in response_data['data']['oldRewardTaskList'] if task['name'] == "每日签到"), None)
+        
+        if daily_sign_task and daily_sign_task['status']:
+            print(f"签到成功！获得 {daily_sign_task['num']} 积分")
+        else:
+            print("签到成功，但未找到积分信息")
+    else:
+        print(f"签到失败: {response_data['message']}")
+    
+    return response_data
+
+
+
+def jifen(auth):
+    url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={auth}"
     headers = {
         'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
     }
@@ -76,21 +97,21 @@ def jifen(tk):
 
 
 if __name__ == "__main__":
-    var_name='gmrb' 
+    var_name='syns' 
     values = os.getenv(var_name)
     values=values.split('\n')
     content=''
     for value in values:
         try:
-            beizhu, tk = value.split('#')
+            beizhu, auth = value.split('#')
             print(f"处理账号: {beizhu}")
             
             # 签到
-            sign_result = sign(tk)
+            sign_result = sign(auth)
             sign_status = "成功" if "今天已签到" in sign_result else "失败"
             
             # 查询积分
-            jifen_result = jifen(tk)
+            jifen_result = jifen(auth)
             
             # 构建简洁的通知内容
             account_content = f"{beizhu}: 签到{sign_status}, {jifen_result}\n"
