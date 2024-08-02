@@ -1,8 +1,8 @@
-#微信小程序：七点五饮用天然矿泉水
+#微信小程序：观美日本
 #签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15
 #抓取任意链接请求头中的extra-data中的sid参数填入青龙变量qdwxcxcookie
 #不确定参数有效期
-#青龙变量qdwxcxcookie格式为备注#sid
+#青龙变量gmrb格式为  备注#tk
 #多账号换行
 #小库脚本!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #频道【tl库】：https://pd.qq.com/s/btv4bw7av
@@ -75,7 +75,7 @@ def jifen():
 
 
 if __name__ == "__main__":
-    var_name='tk' 
+    var_name='gmrb' 
     values = os.getenv(var_name)
     values=values.split('\n')
     content=''
