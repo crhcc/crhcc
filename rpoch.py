@@ -1,11 +1,9 @@
-#微信小程序：观美日本
-#签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15
-#抓取任意链接请求头中的extra-data中的sid参数填入青龙变量qdwxcxcookie
-#不确定参数有效期
+#微信小程序：rpoch壹宝玩具
+
 #青龙变量gmrb格式为  备注#tk
 #多账号换行
 #小库脚本!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#频道【tl库】：https://pd.qq.com/s/btv4bw7av
+
 
 
 
@@ -34,17 +32,15 @@ def load_send():
 
 
 def sign():
-  url = "https://gtj-api.shiseidochina.cn/api/v1/app/user/login"
+  url = "https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
   headers = {
-    'x-ma-c' : "ddc266d3ce1e2dde2398bcfdb71f0e78",
-    'x-auth-token' : tk,
+    'token' : "tk",
     'Connection' : "keep-alive",
-    'content-type' : "application/json;charset=UTF-8",
-    'x-shop-c' : "gtj",
-    'Host' : "gtj-api.shiseidochina.cn",
+    'content-type' : "application/json",
+    'Host' : "sbe.tzcul.com",
     'Accept-Encoding' : "gzip,compress,br,deflate",
     'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
-    'Referer' : "https://servicewechat.com/wxbeb52e1c3bd2e11c/79/page-frame.html"
+    'Referer' : "https://servicewechat.com/wx62db64ee8524c34c/21/page-frame.html"
 
   }
 
@@ -56,18 +52,18 @@ def sign():
 
 def jifen():
   try:
-    url = "https://gtj-api.shiseidochina.cn/api/v1/mission/accept/reward"
+    url = "https://sbe.tzcul.com/webapi/Api/tosign"
 
     headers = {
       'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
-      'x-auth-token' : tk
+      'token' : tk
     }
 
     response = requests.get(url, headers=headers)
     xiaoku=json.loads(response.text)
     print('签到成功'+str(xiaoku["data"]["msg"]))
     # print(response.text)
-    tongzhi=str(xiaoku["data"]["statusCode"])
+    tongzhi=str(xiaoku["data"]["score"])
     return tongzhi
   except:
     print('积分查询失败，检查变量是否正确')
@@ -94,12 +90,12 @@ if __name__ == "__main__":
 
     
     print('------运行结束-------')
-    content=content+'\n签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15\n'
+    #content=content+'\n签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15\n'
     content=content+'\n所有账号运行完毕\n'
-    print('签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15')
+    #print('签到10天送100积分，连续20天送20元券，连续30天送25元券，连续45天送七点五饮用天然泉水高端弱碱饮用天然泉水 表白礼物 整箱520ml*15')
      # 判断send是否可用再进行调用
     print()
     if send:
-        send('七点五饮用天然矿泉水签到推送', content)
+        send('epoch签到推送', content)
     else:
         print('通知服务不可用')
