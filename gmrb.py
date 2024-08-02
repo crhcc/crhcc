@@ -39,7 +39,6 @@ def sign():
     'x-ma-c' : ddc266d3ce1e2dde2398bcfdb71f0e78,
     'x-auth-token' : tk,
     'Connection' : keep-alive,
-    'content-type' : application/json;charset=UTF-8,
     'x-shop-c' : gtj,
     'Host' : gtj-api.shiseidochina.cn,
     'Accept-Encoding' : gzip,compress,br,deflate,
