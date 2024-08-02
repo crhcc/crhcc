@@ -55,7 +55,7 @@ def sign():
   return response.text
 
 def jifen():
-
+  try:
     url = "https://gtj-api.shiseidochina.cn/api/v1/mission/accept/reward"
 
     headers = {
