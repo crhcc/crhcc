@@ -108,8 +108,8 @@ if __name__ == "__main__":
             print(f"处理账号: {beizhu}")
             
             # 签到
-            #sign_result = sign(auth)
-            #sign_status = "成功" if "今天已签到" in sign_result else "失败"
+            sign_result = sign(auth)
+            sign_status = "成功" if "今天已签到" in sign_result else "失败"
             
             # 查询积分
             jifen_result = jifen(auth)
