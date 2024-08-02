@@ -1,6 +1,6 @@
 #微信小程序：epoch壹宝玩具
 
-#青龙变量gmrb格式为  备注#tk
+#青龙变量eeka格式为  备注#tk
 #多账号换行
 #小库脚本!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -40,20 +40,20 @@ def check_internet():
         print("警告: 无法连接到互联网!")
 
 def sign(tk):
-  url = "https://sbe.tzcul.com/webapi/Api/tosign"
+  url = "https://mallapplet.prd.eeka.com.cn/mallApplet/cci/getMemberGiftListCheckIn?activityCode=H20240730000003"
   headers = {
-    'Accept-Encoding' : "gzip,compress,br,deflate",
-    'content-type' : "application/x-www-form-urlencoded",
-    'Connection' : "keep-alive",
-    'Referer' : "https://servicewechat.com/wx62db64ee8524c34c/21/page-frame.html",
-    'Host' : "sbe.tzcul.com",
-    'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN"
+        'Accept-Encoding' : "gzip,compress,br,deflate",
+        'content-type' : "application/json",
+        'Connection' : "keep-alive",
+        'Referer' : "https://servicewechat.com/wxd4ba34bbd7657253/77/page-frame.html",
+        'Host' : "mallapplet.prd.eeka.com.cn",
+        'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
+        'x-sso-sessionid' : "2_1",
+        'token' : tk
   }
-  data = {
-        'token': tk
-    }
+  
   #print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
-  response = requests.get(url, headers=headers, params=data)
+  response = requests.get(url, headers=headers)
   print(f"签到成功: {response.json()['msg']}")
   return response.text
 
@@ -77,7 +77,7 @@ def jifen(tk):
 
 
 if __name__ == "__main__":
-    var_name='gmrb' 
+    var_name='eeka' 
     values = os.getenv(var_name)
     values=values.split('\n')
     content=''
