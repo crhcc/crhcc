@@ -54,7 +54,7 @@ def sign(tk):
     }
   #print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
   response = requests.get(url, headers=headers, params=data)
-  print(f"签到响应: {response.text}")
+  print(f"签到成功: {response.json()['msg']}")
   return response.text
 
 def jifen(tk):
@@ -66,8 +66,9 @@ def jifen(tk):
         response = requests.get(url, headers=headers)
         xiaoku = json.loads(response.text)
         if xiaoku["code"] == 1 and "data" in xiaoku:
-            score = xiaoku["data"]["data"]["score"]
-            return f"当前积分: {score}"
+            score = str(xiaoku["data"]["data"]["score"])
+            print('目前积分为'+score+'\n\n')
+            time.sleep(2)
         else:
             return "积分查询失败"
     except Exception as e:
@@ -81,27 +82,14 @@ if __name__ == "__main__":
     values=values.split('\n')
     content=''
     for value in values:
-        try:
-            beizhu, tk = value.split('#')
-            print(f"处理账号: {beizhu}")
-            
-            # 签到
-            sign_result = sign(tk)
-            sign_status = "成功" if "今天已签到" in sign_result else "失败"
-            
-            # 查询积分
-            jifen_result = jifen(tk)
-            
-            # 构建简洁的通知内容
-            account_content = f"{beizhu}: 签到{sign_status}, {jifen_result}\n"
-            content += account_content
-            print(account_content)
-        
-        except Exception as e:
-            error_msg = f"{beizhu}: 处理失败 - {str(e)}\n"
-            content += error_msg
-            print(error_msg)
-    
+        beizhu=value.split('#')[0];
+        tk=value.split('#')[1];
+        print('-------开始' + str(beizhu) + '签到------')
+        content=content+'\n===='+str(beizhu)+'账号签到情况====\n'
+        content=content+str(sign(tk))
+        print('-------开始' + str(beizhu) + '查询积分------')
+        content=content+str(jifen(tk))
+        content=content+'\n----------------------\n'
     # 在load_send中获取导入的send函数
     send = load_send()
     if send:
