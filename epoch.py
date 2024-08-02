@@ -60,24 +60,19 @@ def sign(tk):
 
 def jifen(tk):
     url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
-    print(f"发送积分查询请求: URL={url}")
     headers = {
         'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
     }
     try:
         response = requests.get(url, headers=headers)
-        print(f"积分查询响应: {response.text}")
         xiaoku = json.loads(response.text)
         if xiaoku["code"] == 1 and "data" in xiaoku:
             score = xiaoku["data"]["data"]["score"]
-            print(f'查询成功，当前积分：{score}')
-            return f"当前积分：{score}"
+            return f"当前积分: {score}"
         else:
-            print(f'查询失败，返回信息：{xiaoku["msg"]}')
-            return f"查询失败：{xiaoku['msg']}"
+            return "积分查询失败"
     except Exception as e:
-        print(f"积分查询出错: {str(e)}")
-        return "积分查询失败"
+        return "积分查询错误"
 
 
 
