@@ -29,7 +29,15 @@ def load_send():
 
     return False  # 返回False表示未成功加载通知服务
 
+def check_internet():
+    try:
+        requests.get("https://www.baidu.com", timeout=5)
+        return True
+    except requests.ConnectionError:
+        return False
 
+    if not check_internet():
+        print("警告: 无法连接到互联网!")
 
 def sign(tk):
   url = "https://sbe.tzcul.com/webapi/Api/tosign"
@@ -42,31 +50,30 @@ def sign(tk):
     'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN"
   }
   data = {
-    'token': tk,
-    'day': '1'
-  }
-  response = requests.get(url, headers=headers)
-  time.sleep(2)
-  print(response.text)
-  time.sleep(2)
-  return response.text
+        'token': tk,
+        'day': '1'
+    }
+    print(f"发送签到请求: URL={url}, Headers={headers}, Data={data}")
+    response = requests.get(url, headers=headers, params=data)
+    print(f"签到响应: {response.text}")
+    return response.text
 
 def jifen(tk):
-  try:
     url = f"https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
-
+    print(f"发送积分查询请求: URL={url}")
     headers = {
       'User-Agent': "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
     }
-
-    response = requests.get(url, headers=headers)
-    xiaoku=json.loads(response.text)
-    print('签到成功'+str(xiaoku["data"]["msg"]))
-    # print(response.text)
-    tongzhi=str(xiaoku["data"]["score"])
-    return tongzhi
-  except:
-    print('积分查询失败，检查变量是否正确')
+    try:
+        response = requests.get(url, headers=headers)
+        print(f"积分查询响应: {response.text}")
+        xiaoku = json.loads(response.text)
+        print('签到成功' + str(xiaoku["data"]["msg"]))
+        tongzhi = str(xiaoku["data"]["score"])
+        return tongzhi
+    except Exception as e:
+        print(f"积分查询出错: {str(e)}")
+        return "积分查询失败"
 
 
 
@@ -76,14 +83,21 @@ if __name__ == "__main__":
     values=values.split('\n')
     content=''
     for value in values:
-        beizhu=value.split('#')[0];
-        tk=value.split('#')[1];
-        print('-------开始' + str(beizhu) + '签到------')
-        content=content+'\n===='+str(beizhu)+'账号签到情况====\n'
-        content=content+str(sign(tk))
-        print('-------开始' + str(beizhu) + '查询积分------')
-        content=content+str(jifen(tk))
-        content=content+'\n----------------------\n'
+    try:
+        beizhu = value.split('#')[0]
+        tk = value.split('#')[1]
+        print(f"处理账号: {beizhu}")
+        sign_result = sign(tk)
+        jifen_result = jifen(tk)
+        content += f"\n==== {beizhu} 账号签到情况 ====\n"
+        content += f"签到结果: {sign_result}\n"
+        content += f"积分情况: {jifen_result}\n"
+        content += "----------------------\n"
+    except Exception as e:
+        print(f"处理 {beizhu} 账号时出错: {str(e)}")
+        content += f"\n==== {beizhu} 账号处理失败 ====\n"
+        content += f"错误: {str(e)}\n"
+        content += "----------------------\n"
     # 在load_send中获取导入的send函数
     send = load_send()
     print()
