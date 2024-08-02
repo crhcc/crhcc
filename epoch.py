@@ -32,7 +32,7 @@ def load_send():
 
 
 def sign():
-  url = "https://sbe.tzcul.com/webapi/Api/getSbeUser?token=d2ba1d4cff8eaec62f001d4e10d9c64a5ae1ba44559e0c9d26c3f53d94a9239c"
+  url = "https://sbe.tzcul.com/webapi/Api/tosign"
   headers = {
     'token' : "tk",
     'Connection' : "keep-alive",
@@ -63,8 +63,8 @@ def jifen():
     xiaoku=json.loads(response.text)
     print('签到成功'+str(xiaoku["data"]["msg"]))
     # print(response.text)
-    tongzhi=str(xiaoku["data"]["score"])
-    return tongzhi
+    #tongzhi=str(xiaoku["data"]["score"])
+    #return tongzhi
   except:
     print('积分查询失败，检查变量是否正确')
 
