@@ -36,14 +36,15 @@ def load_send():
 def sign():
   url = "https://gtj-api.shiseidochina.cn/api/v1/app/user/login"
   headers = {
-    'x-ma-c' : ddc266d3ce1e2dde2398bcfdb71f0e78,
+    'x-ma-c' : "ddc266d3ce1e2dde2398bcfdb71f0e78",
     'x-auth-token' : tk,
-    'Connection' : keep-alive,
-    'x-shop-c' : gtj,
-    'Host' : gtj-api.shiseidochina.cn,
-    'Accept-Encoding' : gzip,compress,br,deflate,
-    'User-Agent' : Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN,
-    'Referer' : https://servicewechat.com/wxbeb52e1c3bd2e11c/79/page-frame.html
+    'Connection' : "keep-alive",
+    'content-type' : "application/json;charset=UTF-8",
+    'x-shop-c' : "gtj",
+    'Host' : "gtj-api.shiseidochina.cn",
+    'Accept-Encoding' : "gzip,compress,br,deflate",
+    'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
+    'Referer' : "https://servicewechat.com/wxbeb52e1c3bd2e11c/79/page-frame.html"
 
   }
 
