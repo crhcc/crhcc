@@ -34,16 +34,16 @@ def load_send():
 def sign():
   url = "https://sbe.tzcul.com/webapi/Api/tosign"
   headers = {
-    'token' : "tk",
     'Connection' : "keep-alive",
     'content-type' : "application/json",
     'Host' : "sbe.tzcul.com",
     'Accept-Encoding' : "gzip,compress,br,deflate",
     'User-Agent' : "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.44(0x18002c10) NetType/WIFI Language/zh_CN",
     'Referer' : "https://servicewechat.com/wx62db64ee8524c34c/21/page-frame.html"
-
   }
-
+  body = {
+    'token'= tk +"&day=1"
+    }
   response = requests.get(url, headers=headers)
   time.sleep(2)
   print(response.text)
