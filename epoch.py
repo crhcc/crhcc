@@ -32,7 +32,7 @@ def load_send():
 
 
 def sign():
-  url = "https://sbe.tzcul.com/webapi/Api/getSbeUser?token={tk}"
+  url = "https://sbe.tzcul.com/webapi/Api/getSbeUser?token=d2ba1d4cff8eaec62f001d4e10d9c64a5ae1ba44559e0c9d26c3f53d94a9239c"
   headers = {
     'token' : "tk",
     'Connection' : "keep-alive",
