@@ -83,21 +83,21 @@ if __name__ == "__main__":
     values=values.split('\n')
     content=''
     for value in values:
-    try:
-        beizhu = value.split('#')[0]
-        tk = value.split('#')[1]
-        print(f"处理账号: {beizhu}")
-        sign_result = sign(tk)
-        jifen_result = jifen(tk)
-        content += f"\n==== {beizhu} 账号签到情况 ====\n"
-        content += f"签到结果: {sign_result}\n"
-        content += f"积分情况: {jifen_result}\n"
-        content += "----------------------\n"
-    except Exception as e:
-        print(f"处理 {beizhu} 账号时出错: {str(e)}")
-        content += f"\n==== {beizhu} 账号处理失败 ====\n"
-        content += f"错误: {str(e)}\n"
-        content += "----------------------\n"
+        try:
+            beizhu = value.split('#')[0]
+            tk = value.split('#')[1]
+            print(f"处理账号: {beizhu}")
+            sign_result = sign(tk)
+            jifen_result = jifen(tk)
+            content += f"\n==== {beizhu} 账号签到情况 ====\n"
+            content += f"签到结果: {sign_result}\n"
+            content += f"积分情况: {jifen_result}\n"
+            content += "----------------------\n"
+        except Exception as e:
+            print(f"处理 {beizhu} 账号时出错: {str(e)}")
+            content += f"\n==== {beizhu} 账号处理失败 ====\n"
+            content += f"错误: {str(e)}\n"
+            content += "----------------------\n"
     # 在load_send中获取导入的send函数
     send = load_send()
     print()
