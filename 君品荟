@@ -55,16 +55,19 @@ async function main() {
             console.log("获取滑块失败，可能不需要或接口变更")
         }
 
-        console.log("开始签到")
-        let signIn = await commonPost('/api/customer/daily/fillSignIn', { "channelCode": "xj_mall_wx_applet" })
-        if (signIn.code == 10000) {
-            if (signIn.data.pointValue != 0) {
-                console.log(`签到获得：${signIn.data.pointValue}积分`)
+        //签到
+        console.log("开始签到...");
+        let signIn = await commonPost('/api/customer/daily/fillSignIn', { "channelCode": "xj_mall_wx_applet" });
+        
+        if (signIn && signIn.code == 10000) {
+            if (signIn.data && signIn.data.pointValue != 0) {
+                console.log(`签到获得：${signIn.data.pointValue}积分`);
             } else {
-                console.log(signIn.data.resultDesc)
+                console.log(signIn.data ? signIn.data.resultDesc : "签到成功，但未获取到积分变动");
             }
         } else {
-            console.log(signIn.message || "签到异常")
+            // 如果接口变更或者需要验证码，这里会打印出官方的具体报错提示
+            console.log(`签到异常: ${signIn ? signIn.message : "无返回数据"}`);
         }
 
         //关注
