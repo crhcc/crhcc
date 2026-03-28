@@ -43,11 +43,12 @@ const auth = ''; // '{"account":{"user1":{"auth":"xxx"},"user2":{"auth":"xxx"}}}
     if (userNum) {
         const invalidUser = [];
         for (const i in user.account) {
+            const acct = user.account[i]; // 传整个账号对象
             const text = [
                 userNum > 1 && `[账号${notifyMsg.length + 1}(${i.slice(-4)})]`,
-                await Checkin(user.account[i].auth),
-                await CheckAppletin(user.account[i].auth),
-                await Points(user.account[i].auth)
+                await Checkin(acct),
+                await CheckAppletin(acct),
+                await Points(acct)
             ].filter((v) => v).join(', ');
             if (text.includes('登陆失效')) {
                 invalidUser.push(i);
@@ -72,20 +73,56 @@ const auth = ''; // '{"account":{"user1":{"auth":"xxx"},"user2":{"auth":"xxx"}}}
     });
 
 // ============================================================
-// 会员签到（加入滑块验证码重试）
+// 生成随机 rid（32位大写hex）
 // ============================================================
-function Checkin(key, verifiedToken, retry) {
+function generateRid() {
+    let s = '';
+    for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16).toUpperCase();
+    return s;
+}
+
+// ============================================================
+// 构建签到请求体（miniProgram 格式）
+// acct = { token, openId, cid, auth(兼容旧版) }
+// ============================================================
+function buildSignBody(acct, extra) {
+    const body = {
+        openId:   acct.openId  || '',
+        rmsToken: '',
+        platform: 'miniProgram',
+        rid:      generateRid(),
+        head: {
+            xsid:      '',
+            extension: [],
+            lang:      '01',
+            syscode:   '09',
+            sid:       '8888',
+            auth:      acct.auth || '',   // 旧版 ticket 兼容
+            cver:      '1.0',
+            ctok:      '',
+            cid:       acct.cid || ''
+        },
+        version: '2.0.31',
+        token:   acct.token || acct.auth || ''  // 新版用 token，旧版用 auth
+    };
+    return Object.assign(body, extra || {});
+}
+
+// ============================================================
+// 会员签到（使用正确的 miniProgram 请求格式）
+// ============================================================
+function Checkin(acct, verifiedToken, retry) {
     retry = retry || 0;
     if (retry >= 3) return Promise.resolve('签到失败(验证码重试超限)');
 
-    const bodyObj = { head: { auth: key } };
+    const bodyObj = buildSignBody(acct);
     if (verifiedToken) bodyObj.verifiedToken = verifiedToken;
 
     const opts = {
         url: 'https://m.ctrip.com/restapi/soa2/22769/signToday',
         headers: {
             "Content-Type": "application/json",
-            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.56(0x1800383b) NetType/WIFI Language/zh_CN miniProgram/wx0e6ed4f51db9d078'
         },
         body: JSON.stringify(bodyObj)
     };
@@ -102,8 +139,8 @@ function Checkin(key, verifiedToken, retry) {
                 return '登陆失效, 尝试移除账号...';
             } else if (needsCaptcha(resp.body)) {
                 $.log(`[签到] 🔐 触发验证码(第${retry + 1}次): ${JSON.stringify(resp.body)}`);
-                const token = await handleCaptcha(key, resp.body);
-                if (token) return Checkin(key, token, retry + 1);
+                const tok = await handleCaptcha(acct, resp.body);
+                if (tok) return Checkin(acct, tok, retry + 1);
                 return '签到失败(验证码识别失败)';
             } else {
                 return `签到失败(${resp.body.message})`;
@@ -116,20 +153,20 @@ function Checkin(key, verifiedToken, retry) {
 }
 
 // ============================================================
-// 小程序积分签到（加入滑块验证码重试）
+// 小程序积分签到
 // ============================================================
-function CheckAppletin(key, verifiedToken, retry) {
+function CheckAppletin(acct, verifiedToken, retry) {
     retry = retry || 0;
     if (retry >= 3) return Promise.resolve('签到失败(验证码重试超限)');
 
-    const bodyObj = { head: { auth: key } };
+    const bodyObj = buildSignBody(acct);
     if (verifiedToken) bodyObj.verifiedToken = verifiedToken;
 
     const opts = {
         url: 'https://m.ctrip.com/restapi/soa2/14160/signInWechatPoint',
         headers: {
             "Content-Type": "application/json",
-            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.56(0x1800383b) NetType/WIFI Language/zh_CN miniProgram/wx0e6ed4f51db9d078'
         },
         body: JSON.stringify(bodyObj)
     };
@@ -146,8 +183,8 @@ function CheckAppletin(key, verifiedToken, retry) {
                 return '登陆失效, 尝试移除账号...';
             } else if (needsCaptcha(resp.body)) {
                 $.log(`[小程序签到] 🔐 触发验证码(第${retry + 1}次): ${JSON.stringify(resp.body)}`);
-                const token = await handleCaptcha(key, resp.body);
-                if (token) return CheckAppletin(key, token, retry + 1);
+                const tok = await handleCaptcha(acct, resp.body);
+                if (tok) return CheckAppletin(acct, tok, retry + 1);
                 return '签到失败(验证码识别失败)';
             } else {
                 return `签到失败(${resp.body.message})`;
@@ -160,16 +197,16 @@ function CheckAppletin(key, verifiedToken, retry) {
 }
 
 // ============================================================
-// 查询积分（原版不动）
+// 查询积分
 // ============================================================
-function Points(key) {
+function Points(acct) {
     const opts = {
         url: 'https://m.ctrip.com/restapi/soa2/15634/json/getPointsOrderUserInfo',
         headers: {
             "Content-Type": "application/json",
-            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.56(0x1800383b) NetType/WIFI Language/zh_CN miniProgram/wx0e6ed4f51db9d078'
         },
-        body: JSON.stringify({ needUserInfo: true, head: { auth: key } })
+        body: JSON.stringify(Object.assign(buildSignBody(acct), { needUserInfo: true }))
     };
     $.debug(`Send points request:`, $.toStr(opts, 'error', null, 1));
     return $.http.post(opts)
@@ -187,18 +224,33 @@ function Points(key) {
 }
 
 // ============================================================
-// 保存授权（原版不动，拦截响应体）
+// 保存授权（拦截登录响应，同时支持旧版 ticket 和新版 token）
 // ============================================================
 function GetAuth(body, data) {
-    if (body.ticket && body.uid) {
-        if (!data.account || !data.account[body.uid]) {
-            notifyMsg.push(`账号: ${body.uid}\n写入授权成功!`);
+    // 新版 miniProgram 格式：token + openId + cid
+    // 旧版格式：ticket + uid
+    const token  = body.token   || body.ticket || '';
+    const uid    = body.uid     || body.openId || '';
+    const openId = body.openId  || '';
+    const cid    = body.cid     || body.guid   || '';
+
+    if (token && uid) {
+        if (!data.account || !data.account[uid]) {
+            notifyMsg.push(`账号: ${uid}\n写入授权成功!`);
         } else {
-            $.info(`账号: ${body.uid}\n更新授权成功!`);
+            $.info(`账号: ${uid}\n更新授权成功!`);
         }
-        data.account = { ...data.account, ...{ [body.uid]: { auth: body.ticket } } };
+        data.account = {
+            ...data.account,
+            [uid]: {
+                auth:   body.ticket || token, // 旧版兼容字段
+                token:  token,                // 新版 miniProgram token
+                openId: openId,
+                cid:    cid
+            }
+        };
     } else {
-        $.error(`写入授权失败, 授权值缺失.`);
+        $.error(`写入授权失败, 授权值缺失. body keys: ${Object.keys(body).join(',')}`);
     }
     return $.setjson(data, $.name);
 }
@@ -227,7 +279,8 @@ function needsCaptcha(body) {
 // ============================================================
 // 验证码处理全流程
 // ============================================================
-async function handleCaptcha(key, captchaData) {
+async function handleCaptcha(acct, captchaData) {
+    const key = acct.token || acct.auth || '';
     const bgSrc   = captchaData.bgPicUrl || captchaData.backgroundImage || captchaData.bgImg || captchaData.bg || '';
     const tpSrc   = captchaData.cutPicUrl || captchaData.slidingImage || captchaData.slideImg || captchaData.tp || '';
     const bizToken = captchaData.bizToken || captchaData.captchaId || captchaData.verifyToken || '';
@@ -263,31 +316,30 @@ async function handleCaptcha(key, captchaData) {
     }
 
     // 提交滑块答案
-    return await submitCaptcha(key, bizToken, moveX, captchaData);
+    return await submitCaptcha(acct, bizToken, moveX, captchaData);
 }
 
 // ============================================================
 // 提交滑块答案，返回 verifiedToken
 // ============================================================
-async function submitCaptcha(key, bizToken, moveX, captchaData) {
+async function submitCaptcha(acct, bizToken, moveX, captchaData) {
     const verifyUrl = captchaData.verifyUrl || 'https://m.ctrip.com/restapi/soa2/22769/verifyCaptcha';
-    const duration  = Math.floor(Math.random() * 600) + 800; // 模拟人类滑动时长
+    const duration  = Math.floor(Math.random() * 600) + 800;
 
     try {
         const resp = await $.http.post({
             url: verifyUrl,
             headers: {
                 'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.56(0x1800383b) NetType/WIFI Language/zh_CN miniProgram/wx0e6ed4f51db9d078'
             },
-            body: JSON.stringify({
-                head:      { auth: key },
+            body: JSON.stringify(Object.assign(buildSignBody(acct), {
                 bizToken:  bizToken,
                 captchaId: bizToken,
                 moveX:     moveX,
                 moveY:     0,
                 duration:  duration
-            })
+            }))
         });
         $.log('验证提交响应: ' + resp.body);
         const d = JSON.parse(resp.body || '{}');
