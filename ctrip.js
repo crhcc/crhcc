@@ -1,460 +1,312 @@
-/*
-========================================================
-  携程旅行 | 会员每日签到 + 滑块验证码自动识别
-  作者: ddgksf2013 | 滑块: xzxxn777/ddddocr
-========================================================
+/********************************
+携程旅行签到脚本 (含滑块验证码自动识别)
 
-【QuantumultX 配置】
+！！！Cookie获取完，记得禁用重写！！！
+
+配置脚本后登陆"携程旅行"微信小程序或"携程网页版"(https://m.ctrip.com)即可获取账号授权。多账号请勿"退出登陆"。
+
+脚本作者：@NobyDa, @ddgksf2013 | 滑块识别：xzxxn777/ddddocr
+更新时间：2025/07/05
+
 
 [rewrite_local]
-^https:\/\/m\.ctrip\.com\/restapi\/soa2\/\d+\/[a-zA-Z]+Login(?:$|\?) url script-request-body ctrip.js
+^https:\/\/m\.ctrip\.com\/restapi\/soa2\/\d+\/[a-zA-Z]+Login(?:$|\?) url script-response-body ctrip.js
 
 [task_local]
-15 7,15 * * * ctrip.js, tag=携程签到, enabled=true, img-url=https://raw.githubusercontent.com/Orz-3/mini/master/Color/ctrip.png
+15 7,15 * * * ctrip.js, tag=Ctrip, img-url=https://fastly.jsdelivr.net/gh/Orz-3/mini@master/Color/ctrip.png
 
 [mitm]
 hostname = m.ctrip.com
 
-【首次使用】
-1. 开启 MitM + 重写，打开携程 App 登录一次，自动保存 Auth
-2. 之后每天自动定时签到
-
-【青龙面板环境变量】
-CTRIP_AUTH={"account":{"user1":{"auth":"ticket=xxx&uid=xxx"}}}
-DDDDOCR_HOST=http://127.0.0.1:8080
-CTRIP_BARK_KEY=你的Bark推送Key（可选）
-========================================================
-*/
+*********************************/
 
 // ============================================================
-// ★ 配置区
+// ★ 滑块识别服务地址（替换为你VPS的公网IP）
 // ============================================================
-// 圈X用户：把 YOUR_VPS_IP 替换为你VPS的公网IP
-// 青龙用户：设置环境变量 DDDDOCR_HOST 自动覆盖
-const DDDDOCR_HOST = (function () {
-  try { return process.env.DDDDOCR_HOST || "http://213.35.120.215:8080"; } catch (e) { return "http://213.35.120.215:8080"; }
-})();
-
-// 滑块偏移比例校正，通常 1.0 即可，若位置偏差大可试 0.5
-const IMG_SCALE = 1.0;
+const DDDDOCR_HOST = 'http://213.35.120.215:8080';
+const IMG_SCALE = 1.0; // 偏移比例校正，通常 1.0，偏差大时可试 0.5
 // ============================================================
 
-const $ = new Env("携程签到");
-const STORE_KEY = "CTRIP_DAILY_BONUS";
+const $ = new Env('CTRIP_DAILY_BONUS');
+const barkKey = $.isNode() && process.env['CTRIP_BARK_KEY'] || ''; // bark key
+const notifyMsg = [];
+const auth = ''; // '{"account":{"user1":{"auth":"xxx"},"user2":{"auth":"xxx"}}}'
 
 !(async () => {
-  try {
-    // ── 重写模式：拦截登录请求，保存 Auth ────────────────────
-    if (typeof $request !== "undefined") {
-      await saveAuth();
-      return $.done({});
+    $.logLevel = $.getdata(`@${$.name}.Debug`) == 'true' && 'debug' || 'info';
+    const user = JSON.parse(auth || $.getdata($.name) || ($.isNode() && process.env['CTRIP_AUTH']) || '{}');
+    const userNum = Object.keys(user.account || {}).length;
+    if (typeof $response !== 'undefined') {
+        const body = JSON.parse($response.body || '{}');
+        return GetAuth(body, user);
     }
-
-    // ── 定时任务：执行签到 ───────────────────────────────────
-    $.log("脚本启动");
-
-    const stored = $.isNode
-      ? (tryGet("CTRIP_AUTH") || "")
-      : ($.getdata(STORE_KEY) || "");
-
-    if (!stored) {
-      $.notify("携程签到", "⚠️ 未找到认证信息", "请先打开携程App登录触发抓包");
-      return $.done();
+    if (userNum) {
+        const invalidUser = [];
+        for (const i in user.account) {
+            const text = [
+                userNum > 1 && `[账号${notifyMsg.length + 1}(${i.slice(-4)})]`,
+                await Checkin(user.account[i].auth),
+                await CheckAppletin(user.account[i].auth),
+                await Points(user.account[i].auth)
+            ].filter((v) => v).join(', ');
+            if (text.includes('登陆失效')) {
+                invalidUser.push(i);
+            }
+            $.info(text);
+            notifyMsg.push(text);
+        }
+        invalidUser.forEach((i) => delete user.account[i] && !$.isNode() && $.setjson(user, $.name));
+    } else {
+        notifyMsg.push(`未获取授权!`);
     }
-
-    // 解析账号（兼容单账号字符串和多账号JSON）
-    let accounts = {};
-    try {
-      const parsed = JSON.parse(stored);
-      accounts = parsed.account || {};
-    } catch (e) {
-      accounts = { 默认账号: { auth: stored } };
-    }
-
-    const names = Object.keys(accounts);
-    if (names.length === 0) {
-      $.notify("携程签到", "❌ 账号为空", "");
-      return $.done();
-    }
-
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
-      const info = accounts[name] || {};
-      if (!info.auth) continue;
-      $.log("===== 账号: " + name + " =====");
-      await runCheckin(name, info.auth);
-      if (i < names.length - 1) await $.wait(2000);
-    }
-
-  } catch (e) {
-    $.log("脚本异常:", e && e.message ? e.message : String(e));
-    $.notify("携程签到", "❌ 脚本异常", e && e.message ? e.message : String(e));
-  }
-
-  $.done();
-})();
-
-// 安全读取 Node.js 环境变量
-function tryGet(key) {
-  try { return process.env[key] || ""; } catch (e) { return ""; }
-}
-
-// ============================================================
-// 单账号签到主流程
-// ============================================================
-async function runCheckin(name, auth) {
-  // 1. 会员积分签到
-  const r1 = await checkinWithCaptcha(auth, "signToday",
-    "https://m.ctrip.com/restapi/soa2/22769/signToday");
-  const msg1 = parseResult(r1);
-  $.log("[会员签到] " + msg1);
-
-  // 2. 小程序积分签到
-  const r2 = await checkinWithCaptcha(auth, "signInWechatPoint",
-    "https://m.ctrip.com/restapi/soa2/14160/signInWechatPoint");
-  const msg2 = parseResult(r2);
-  $.log("[小程序签到] " + msg2);
-
-  // 3. 查询积分
-  const pts = await queryPoints(auth);
-  $.log("[积分余额] " + pts);
-
-  const summary = msg1 + "\n" + msg2 + "\n💰 积分: " + pts;
-  $.notify("携程签到", "账号: " + name, summary);
-
-  // Bark 推送（仅 Node.js 青龙）
-  const barkKey = tryGet("CTRIP_BARK_KEY");
-  if (barkKey && $.isNode) {
-    const https = require("https");
-    https.get("https://api.day.app/" + barkKey + "/携程签到/" + encodeURIComponent(name + "\n" + summary))
-      .on("error", function () {});
-  }
-}
-
-// ============================================================
-// 带验证码自动重试的签到
-// ============================================================
-async function checkinWithCaptcha(auth, tag, url, verifiedToken, retry) {
-  retry = retry || 0;
-  if (retry >= 3) return { _error: "验证码重试超限" };
-
-  var bodyObj = { head: buildHead() };
-  if (verifiedToken) bodyObj.verifiedToken = verifiedToken;
-
-  var resp, data;
-  try {
-    resp = await $.post({ url: url, headers: buildHeaders(auth), body: JSON.stringify(bodyObj) });
-    data = JSON.parse(resp.body);
-  } catch (e) {
-    $.log("[" + tag + "] 请求异常: " + (e.message || e));
-    return null;
-  }
-
-  if (needsCaptcha(data)) {
-    $.log("[" + tag + "] 🔐 触发验证码 (第" + (retry + 1) + "次)");
-    $.log("[" + tag + "] 验证码数据: " + JSON.stringify(data));
-    try {
-      var token = await handleCaptcha(auth, data);
-      if (token) {
-        $.log("[" + tag + "] ✅ 验证通过，重新签到...");
-        return checkinWithCaptcha(auth, tag, url, token, retry + 1);
-      }
-    } catch (e) {
-      $.log("[" + tag + "] 验证码处理失败: " + (e.message || e));
-    }
-  }
-
-  return data;
-}
-
-// ============================================================
-// 查询积分余额
-// ============================================================
-async function queryPoints(auth) {
-  try {
-    var resp = await $.post({
-      url: "https://m.ctrip.com/restapi/soa2/15634/json/getPointsOrderUserInfo",
-      headers: buildHeaders(auth),
-      body: JSON.stringify({ head: buildHead() })
+})()
+    .catch((err) => notifyMsg.push(`错误: ${err}`) && $.error(err))
+    .finally(async () => {
+        if (notifyMsg.length) {
+            $.msg(`携程旅行`, ``, notifyMsg.join('\n'));
+        }
+        if (barkKey) {
+            await BarkNotify($, barkKey, `携程旅行`, notifyMsg.join('\n'));
+        }
+        $.done({});
     });
-    var d = JSON.parse(resp.body);
-    return d.memberPoints || d.totalPoints || d.point || "查询失败";
-  } catch (e) {
-    return "查询异常";
-  }
+
+// ============================================================
+// 会员签到（加入滑块验证码重试）
+// ============================================================
+function Checkin(key, verifiedToken, retry) {
+    retry = retry || 0;
+    if (retry >= 3) return Promise.resolve('签到失败(验证码重试超限)');
+
+    const bodyObj = { head: { auth: key } };
+    if (verifiedToken) bodyObj.verifiedToken = verifiedToken;
+
+    const opts = {
+        url: 'https://m.ctrip.com/restapi/soa2/22769/signToday',
+        headers: {
+            "Content-Type": "application/json",
+            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+        },
+        body: JSON.stringify(bodyObj)
+    };
+    $.debug(`Send checkin request:`, $.toStr(opts, 'error', null, 1));
+    return $.http.post(opts)
+        .then(async (resp) => {
+            $.debug(`Receive checkin response:`, $.toStr(resp));
+            resp.body = JSON.parse(resp.body && resp.body.startsWith('{') && resp.body || '{}');
+            if (resp.body.code == 0) {
+                return '签到成功';
+            } else if (resp.body.code == 400001) {
+                return '已签过';
+            } else if (resp.body.code == 404001) {
+                return '登陆失效, 尝试移除账号...';
+            } else if (needsCaptcha(resp.body)) {
+                $.log(`[签到] 🔐 触发验证码(第${retry + 1}次): ${JSON.stringify(resp.body)}`);
+                const token = await handleCaptcha(key, resp.body);
+                if (token) return Checkin(key, token, retry + 1);
+                return '签到失败(验证码识别失败)';
+            } else {
+                return `签到失败(${resp.body.message})`;
+            }
+        })
+        .catch((err) => {
+            $.error(`Send checkin request error:`, err);
+            return `签到错误`;
+        });
 }
 
 // ============================================================
-// 判断是否触发了滑块验证码
+// 小程序积分签到（加入滑块验证码重试）
 // ============================================================
-function needsCaptcha(data) {
-  if (!data) return false;
-  var code = String(data.resultCode || data.ResultCode || data.code || "");
-  var type = String(data.verifyType || data.captchaType || data.slideType || "").toLowerCase();
-  return (
-    code === "NEED_CHALLENGE" ||
-    code === "NEED_VERIFY" ||
-    code === "NeedSlide" ||
-    code === "40302" ||
-    code === "CAPTCHA_REQUIRED" ||
-    type.indexOf("slide") !== -1 ||
-    !!data.bizToken ||
-    !!data.captchaId ||
-    !!data.bgPicUrl ||
-    !!data.backgroundImage
-  );
+function CheckAppletin(key, verifiedToken, retry) {
+    retry = retry || 0;
+    if (retry >= 3) return Promise.resolve('签到失败(验证码重试超限)');
+
+    const bodyObj = { head: { auth: key } };
+    if (verifiedToken) bodyObj.verifiedToken = verifiedToken;
+
+    const opts = {
+        url: 'https://m.ctrip.com/restapi/soa2/14160/signInWechatPoint',
+        headers: {
+            "Content-Type": "application/json",
+            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+        },
+        body: JSON.stringify(bodyObj)
+    };
+    $.debug(`Send appletin checkin request:`, $.toStr(opts, 'error', null, 1));
+    return $.http.post(opts)
+        .then(async (resp) => {
+            $.debug(`Receive appletin checkin response:`, $.toStr(resp));
+            resp.body = JSON.parse(resp.body && resp.body.startsWith('{') && resp.body || '{}');
+            if (resp.body.resultCode == 200) {
+                return '小程序签到成功';
+            } else if (resp.body.resultCode == 500) {
+                return '已签过';
+            } else if (resp.body.resultCode == 404001) {
+                return '登陆失效, 尝试移除账号...';
+            } else if (needsCaptcha(resp.body)) {
+                $.log(`[小程序签到] 🔐 触发验证码(第${retry + 1}次): ${JSON.stringify(resp.body)}`);
+                const token = await handleCaptcha(key, resp.body);
+                if (token) return CheckAppletin(key, token, retry + 1);
+                return '签到失败(验证码识别失败)';
+            } else {
+                return `签到失败(${resp.body.message})`;
+            }
+        })
+        .catch((err) => {
+            $.error(`Send appletin checkin request error:`, err);
+            return `签到错误`;
+        });
+}
+
+// ============================================================
+// 查询积分（原版不动）
+// ============================================================
+function Points(key) {
+    const opts = {
+        url: 'https://m.ctrip.com/restapi/soa2/15634/json/getPointsOrderUserInfo',
+        headers: {
+            "Content-Type": "application/json",
+            "User-Agent": 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+        },
+        body: JSON.stringify({ needUserInfo: true, head: { auth: key } })
+    };
+    $.debug(`Send points request:`, $.toStr(opts, 'error', null, 1));
+    return $.http.post(opts)
+        .then((resp) => {
+            $.debug(`Receive points request response:`, $.toStr(resp));
+            resp.body = JSON.parse(resp.body && resp.body.startsWith('{') && resp.body || '{}');
+            if (resp.body.isLogin) {
+                return `总积分: ${resp.body.availableCredits || 0}`;
+            }
+        })
+        .catch((err) => {
+            $.error(`Send points request error:`, err);
+            return `总积分: 查询错误`;
+        });
+}
+
+// ============================================================
+// 保存授权（原版不动，拦截响应体）
+// ============================================================
+function GetAuth(body, data) {
+    if (body.ticket && body.uid) {
+        if (!data.account || !data.account[body.uid]) {
+            notifyMsg.push(`账号: ${body.uid}\n写入授权成功!`);
+        } else {
+            $.info(`账号: ${body.uid}\n更新授权成功!`);
+        }
+        data.account = { ...data.account, ...{ [body.uid]: { auth: body.ticket } } };
+    } else {
+        $.error(`写入授权失败, 授权值缺失.`);
+    }
+    return $.setjson(data, $.name);
+}
+
+// ============================================================
+// 判断是否触发滑块验证码
+// ============================================================
+function needsCaptcha(body) {
+    if (!body) return false;
+    const code = String(body.code || body.resultCode || body.ResultCode || '');
+    const type = String(body.verifyType || body.captchaType || body.slideType || '').toLowerCase();
+    return (
+        code === 'NEED_CHALLENGE' ||
+        code === 'NEED_VERIFY' ||
+        code === 'NeedSlide' ||
+        code === '40302' ||
+        code === 'CAPTCHA_REQUIRED' ||
+        type.indexOf('slide') !== -1 ||
+        !!body.bizToken ||
+        !!body.captchaId ||
+        !!body.bgPicUrl ||
+        !!body.backgroundImage
+    );
 }
 
 // ============================================================
 // 验证码处理全流程
 // ============================================================
-async function handleCaptcha(auth, captchaData) {
-  var bgSrc  = captchaData.bgPicUrl      || captchaData.backgroundImage || captchaData.bgImg || captchaData.bg  || "";
-  var tpSrc  = captchaData.cutPicUrl     || captchaData.slidingImage    || captchaData.slideImg || captchaData.tp || "";
-  var bizToken = captchaData.bizToken    || captchaData.captchaId       || captchaData.verifyToken || "";
+async function handleCaptcha(key, captchaData) {
+    const bgSrc   = captchaData.bgPicUrl || captchaData.backgroundImage || captchaData.bgImg || captchaData.bg || '';
+    const tpSrc   = captchaData.cutPicUrl || captchaData.slidingImage || captchaData.slideImg || captchaData.tp || '';
+    const bizToken = captchaData.bizToken || captchaData.captchaId || captchaData.verifyToken || '';
 
-  if (!bgSrc || !tpSrc) {
-    $.log("⚠️ 找不到验证码图片字段，请查看上方完整响应数据确认字段名");
-    return null;
-  }
+    if (!bgSrc || !tpSrc) {
+        $.log('⚠️ 未找到验证码图片字段，完整响应: ' + JSON.stringify(captchaData));
+        $.log('请根据上方字段名更新 handleCaptcha() 中的字段映射');
+        return null;
+    }
 
-  // 调用 ddddocr（直接传 URL，让服务端下载图片）
-  var ocrResp, ocrData;
-  try {
-    ocrResp = await $.post({
-      url: DDDDOCR_HOST + "/capcode",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        slidingImage: tpSrc,   // 滑块拼图块
-        backImage:    bgSrc,   // 背景图（有缺口）
-        simpleTarget: false    // 拼图类型用 false
-      })
-    });
-    ocrData = JSON.parse(ocrResp.body);
-  } catch (e) {
-    $.log("ddddocr 调用失败: " + (e.message || e));
-    return null;
-  }
+    // 调用 ddddocr 识别滑块偏移（直接传URL，服务端负责下载）
+    let moveX;
+    try {
+        const ocrResp = await $.http.post({
+            url: DDDDOCR_HOST + '/capcode',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                slidingImage: tpSrc,   // 滑块拼图块
+                backImage:    bgSrc,   // 背景图（有缺口）
+                simpleTarget: false    // 拼图类型
+            })
+        });
+        const ocrData = JSON.parse(ocrResp.body || '{}');
+        if (ocrData.result === undefined) {
+            $.log('ddddocr 无 result 字段: ' + ocrResp.body);
+            return null;
+        }
+        moveX = Math.round(ocrData.result * IMG_SCALE);
+        $.log(`🎯 识别偏移: ${ocrData.result}px → 校正后: ${moveX}px`);
+    } catch (e) {
+        $.log('ddddocr 调用失败: ' + (e.message || e));
+        return null;
+    }
 
-  if (ocrData.result === undefined) {
-    $.log("ddddocr 无 result 字段: " + ocrResp.body);
-    return null;
-  }
-
-  var moveX = Math.round(ocrData.result * IMG_SCALE);
-  $.log("🎯 识别偏移: " + ocrData.result + "px → 校正后: " + moveX + "px");
-
-  return await submitCaptcha(auth, bizToken, moveX, captchaData);
+    // 提交滑块答案
+    return await submitCaptcha(key, bizToken, moveX, captchaData);
 }
 
 // ============================================================
 // 提交滑块答案，返回 verifiedToken
 // ============================================================
-async function submitCaptcha(auth, bizToken, moveX, captchaData) {
-  var verifyUrl = captchaData.verifyUrl || "https://m.ctrip.com/restapi/soa2/22769/verifyCaptcha";
-  var duration  = Math.floor(Math.random() * 600) + 800;
+async function submitCaptcha(key, bizToken, moveX, captchaData) {
+    const verifyUrl = captchaData.verifyUrl || 'https://m.ctrip.com/restapi/soa2/22769/verifyCaptcha';
+    const duration  = Math.floor(Math.random() * 600) + 800; // 模拟人类滑动时长
 
-  try {
-    var resp = await $.post({
-      url: verifyUrl,
-      headers: buildHeaders(auth),
-      body: JSON.stringify({
-        head:      buildHead(),
-        bizToken:  bizToken,
-        captchaId: bizToken,
-        moveX:     moveX,
-        moveY:     0,
-        duration:  duration
-      })
-    });
-    $.log("验证提交响应: " + resp.body);
-    var d = JSON.parse(resp.body);
-    var token = d.verifiedToken || d.token || (d.data && d.data.verifiedToken) || "";
-    if (!token) $.log("⚠️ 未收到 verifiedToken");
-    return token || null;
-  } catch (e) {
-    $.log("提交验证码失败: " + (e.message || e));
-    return null;
-  }
-}
-
-// ============================================================
-// 拦截登录请求，提取并保存 Auth
-// ============================================================
-async function saveAuth() {
-  try {
-    var body = ($request && $request.body) ? $request.body : "{}";
-    var data;
-    try { data = JSON.parse(body); } catch (e) { $.log("登录body非JSON"); return; }
-
-    var ticket = data.ticket || data.access_token || data.Token || data.token || "";
-    var uid    = data.uid    || data.userId       || data.memberID || data.cuid || "";
-
-    if (!ticket || !uid) {
-      $.log("登录请求未含 ticket/uid，字段: " + Object.keys(data).join(", "));
-      return;
-    }
-
-    var auth  = "ticket=" + ticket + "&uid=" + uid;
-    var acctName = "user_" + uid;
-    var existing = $.getdata(STORE_KEY) || "{}";
-    var store = { account: {} };
-    try { store = JSON.parse(existing) || store; } catch (e) {}
-    if (!store.account) store.account = {};
-    store.account[acctName] = { auth: auth, uid: uid };
-    $.setdata(JSON.stringify(store), STORE_KEY);
-    $.notify("携程签到", "✅ Auth 已保存", "账号: " + acctName);
-    $.log("已保存: " + acctName);
-  } catch (e) {
-    $.log("saveAuth 异常: " + (e.message || e));
-  }
-}
-
-// ============================================================
-// 解析签到结果
-// ============================================================
-function parseResult(data) {
-  if (!data) return "请求失败";
-  if (data._error) return "❌ " + data._error;
-  var desc   = data.desc || data.message || data.tips || data.resultDesc || "";
-  var points = data.points || data.point || data.earnPoints || "";
-  if (desc && points) return desc + "（+" + points + "分）";
-  if (desc) return desc;
-  if (points) return "+" + points + "分";
-  var code = String(data.resultCode || data.code || "");
-  if (code === "0" || code === "OK" || code === "SUCCESS") return "✅ 成功";
-  return "code=" + code;
-}
-
-// ============================================================
-// 构建请求头
-// ============================================================
-function buildHeaders(cookieStr) {
-  var ticketMatch = cookieStr.match(/ticket=([^&;]+)/);
-  return {
-    "Content-Type": "application/json",
-    "Cookie":       cookieStr,
-    "User-Agent":   "CtripMobile/8.55.0 CFNetwork/1494.0.7 Darwin/23.4.0",
-    "cticket":      ticketMatch ? ticketMatch[1] : ""
-  };
-}
-
-function buildHead() {
-  return {
-    Locale:    "zh-CN",
-    Platform:  "H5",
-    Currency:  "CNY",
-    TimeZone:  "Asia/Shanghai",
-    Extension: [{ name: "protocal", value: "https" }]
-  };
-}
-
-// ============================================================
-// Env 类 — 兼容 QuantumultX / Surge / Loon / Node.js
-// ============================================================
-function Env(name) {
-  var isQX    = typeof $task       !== "undefined";
-  var isSurge = typeof $httpClient !== "undefined" && typeof $loon === "undefined";
-  var isLoon  = typeof $loon       !== "undefined";
-  var isNode  = typeof module      !== "undefined";
-
-  function log() {
-    var args = Array.prototype.slice.call(arguments);
-    console.log.apply(console, ["[" + name + "]"].concat(args));
-  }
-
-  function notify(title, subtitle, body) {
-    if      (isQX)              $notify(title, subtitle, body);
-    else if (isSurge || isLoon) $notification.post(title, subtitle, body);
-    else                        console.log("\n📢 " + title + "\n" + subtitle + "\n" + body);
-  }
-
-  function wait(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, ms); });
-  }
-
-  function getdata(key) {
-    if (isQX)              return $prefs.valueForKey(key);
-    if (isSurge || isLoon) return $persistentStore.read(key);
-    if (isNode) {
-      try { return require("fs").readFileSync("./" + key + ".json", "utf8"); } catch (e) { return ""; }
-    }
-    return "";
-  }
-
-  function setdata(val, key) {
-    if (isQX)              return $prefs.setValueForKey(val, key);
-    if (isSurge || isLoon) return $persistentStore.write(val, key);
-    if (isNode) {
-      try { require("fs").writeFileSync("./" + key + ".json", val, "utf8"); return true; } catch (e) { return false; }
-    }
-    return false;
-  }
-
-  function request(method, options) {
-    return new Promise(function (resolve, reject) {
-      var opts = {
-        url:     options.url,
-        headers: options.headers || {},
-        body:    options.body,
-        method:  method.toUpperCase()
-      };
-
-      if (isQX) {
-        $task.fetch(opts)
-          .then(function (r) { resolve({ status: r.statusCode, headers: r.headers, body: r.body }); })
-          .catch(reject);
-
-      } else if (isSurge || isLoon) {
-        var fn = method.toLowerCase() === "post" ? $httpClient.post : $httpClient.get;
-        fn(opts, function (e, r, b) {
-          if (e) return reject(e);
-          resolve({ status: r.status, headers: r.headers, body: b });
+    try {
+        const resp = await $.http.post({
+            url: verifyUrl,
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/21E219 MicroMessenger/8.0.49'
+            },
+            body: JSON.stringify({
+                head:      { auth: key },
+                bizToken:  bizToken,
+                captchaId: bizToken,
+                moveX:     moveX,
+                moveY:     0,
+                duration:  duration
+            })
         });
-
-      } else if (isNode) {
-        var u   = new URL(options.url);
-        var mod = u.protocol === "https:" ? require("https") : require("http");
-        var req = mod.request({
-          hostname: u.hostname,
-          port:     u.port || (u.protocol === "https:" ? 443 : 80),
-          path:     u.pathname + u.search,
-          method:   method.toUpperCase(),
-          headers:  opts.headers
-        }, function (res) {
-          var chunks = [];
-          res.on("data", function (c) { chunks.push(c); });
-          res.on("end",  function ()  { resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString("utf8") }); });
-        });
-        req.on("error", reject);
-        if (opts.body) req.write(opts.body);
-        req.end();
-      } else {
-        reject(new Error("未知运行环境"));
-      }
-    });
-  }
-
-  function get(opts)  { return request("get",  opts); }
-  function post(opts) { return request("post", opts); }
-
-  function done(v) {
-    if (isQX || isSurge || isLoon) $done(v || {});
-  }
-
-  return {
-    name:    name,
-    isNode:  isNode,
-    isQX:    isQX,
-    isSurge: isSurge,
-    isLoon:  isLoon,
-    log:     log,
-    notify:  notify,
-    wait:    wait,
-    getdata: getdata,
-    setdata: setdata,
-    get:     get,
-    post:    post,
-    done:    done
-  };
+        $.log('验证提交响应: ' + resp.body);
+        const d = JSON.parse(resp.body || '{}');
+        const token = d.verifiedToken || d.token || (d.data && d.data.verifiedToken) || '';
+        if (!token) $.log('⚠️ 未收到 verifiedToken，完整响应: ' + resp.body);
+        return token || null;
+    } catch (e) {
+        $.log('提交验证码失败: ' + (e.message || e));
+        return null;
+    }
 }
+
+// ============================================================
+// Bark 通知（原版不动）
+// ============================================================
+async function BarkNotify(c, k, t, b) { for (let i = 0; i < 3; i++) { c.log(`🔷Bark notify >> Start push (${i + 1})`); const s = await new Promise((n) => { c.post({ url: 'https://api.day.app/push', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: t, body: b, device_key: k, ext_params: { group: t } }) }, (e, r, d) => r && r.status == 200 ? n(1) : n(d || e)) }); if (s === 1) { c.log('✅Push success!'); break } else { c.log(`❌Push failed! >> ${s.message || s}`) } } }
+
+// ============================================================
+// Env.min.js（原版不动）
+// https://github.com/chavyleung/scripts/blob/master/Env.min.js
+// ============================================================
+function Env(t, e) { class s { constructor(t) { this.env = t } send(t, e = "GET") { t = "string" == typeof t ? { url: t } : t; let s = this.get; return "POST" === e && (s = this.post), new Promise(((e, i) => { s.call(this, t, ((t, s, o) => { t ? i(t) : e(s) })) })) } get(t) { return this.send.call(this.env, t) } post(t) { return this.send.call(this.env, t, "POST") } } return new class { constructor(t, e) { this.logLevels = { debug: 0, info: 1, warn: 2, error: 3 }, this.logLevelPrefixs = { debug: "[DEBUG] ", info: "[INFO] ", warn: "[WARN] ", error: "[ERROR] " }, this.logLevel = "info", this.name = t, this.http = new s(this), this.data = null, this.dataFile = "box.dat", this.logs = [], this.isMute = !1, this.isNeedRewrite = !1, this.logSeparator = "\n", this.encoding = "utf-8", this.startTime = (new Date).getTime(), Object.assign(this, e), this.log("", `🔔${this.name}, 开始!`) } getEnv() { return "undefined" != typeof $environment && $environment["surge-version"] ? "Surge" : "undefined" != typeof $environment && $environment["stash-version"] ? "Stash" : "undefined" != typeof module && module.exports ? "Node.js" : "undefined" != typeof $task ? "Quantumult X" : "undefined" != typeof $loon ? "Loon" : "undefined" != typeof $rocket ? "Shadowrocket" : void 0 } isNode() { return "Node.js" === this.getEnv() } isQuanX() { return "Quantumult X" === this.getEnv() } isSurge() { return "Surge" === this.getEnv() } isLoon() { return "Loon" === this.getEnv() } isShadowrocket() { return "Shadowrocket" === this.getEnv() } isStash() { return "Stash" === this.getEnv() } toObj(t, e = null) { try { return JSON.parse(t) } catch { return e } } toStr(t, e = null, ...s) { try { return JSON.stringify(t, ...s) } catch { return e } } getjson(t, e) { let s = e; if (this.getdata(t)) try { s = JSON.parse(this.getdata(t)) } catch { } return s } setjson(t, e) { try { return this.setdata(JSON.stringify(t), e) } catch { return !1 } } getScript(t) { return new Promise((e => { this.get({ url: t }, ((t, s, i) => e(i))) })) } runScript(t, e) { return new Promise((s => { let i = this.getdata("@chavy_boxjs_userCfgs.httpapi"); i = i ? i.replace(/\n/g, "").trim() : i; let o = this.getdata("@chavy_boxjs_userCfgs.httpapi_timeout"); o = o ? 1 * o : 20, o = e && e.timeout ? e.timeout : o; const [r, a] = i.split("@"), n = { url: `http://${a}/v1/scripting/evaluate`, body: { script_text: t, mock_type: "cron", timeout: o }, headers: { "X-Key": r, Accept: "*/*" }, timeout: o }; this.post(n, ((t, e, i) => s(i))) })).catch((t => this.logErr(t))) } loaddata() { if (!this.isNode()) return {}; { this.fs = this.fs ? this.fs : require("fs"), this.path = this.path ? this.path : require("path"); const t = this.path.resolve(this.dataFile), e = this.path.resolve(process.cwd(), this.dataFile), s = this.fs.existsSync(t), i = !s && this.fs.existsSync(e); if (!s && !i) return {}; { const i = s ? t : e; try { return JSON.parse(this.fs.readFileSync(i)) } catch (t) { return {} } } } } writedata() { if (this.isNode()) { this.fs = this.fs ? this.fs : require("fs"), this.path = this.path ? this.path : require("path"); const t = this.path.resolve(this.dataFile), e = this.path.resolve(process.cwd(), this.dataFile), s = this.fs.existsSync(t), i = !s && this.fs.existsSync(e), o = JSON.stringify(this.data); s ? this.fs.writeFileSync(t, o) : i ? this.fs.writeFileSync(e, o) : this.fs.writeFileSync(t, o) } } lodash_get(t, e, s) { const i = e.replace(/\[(\d+)\]/g, ".$1").split("."); let o = t; for (const t of i) if (o = Object(o)[t], void 0 === o) return s; return o } lodash_set(t, e, s) { return Object(t) !== t || (Array.isArray(e) || (e = e.toString().match(/[^.[\]]+/g) || []), e.slice(0, -1).reduce(((t, s, i) => Object(t[s]) === t[s] ? t[s] : t[s] = Math.abs(e[i + 1]) >> 0 == +e[i + 1] ? [] : {}), t)[e[e.length - 1]] = s), t } getdata(t) { let e = this.getval(t); if (/^@/.test(t)) { const [, s, i] = /^@(.*?)\.(.*?)$/.exec(t), o = s ? this.getval(s) : ""; if (o) try { const t = JSON.parse(o); e = t ? this.lodash_get(t, i, "") : e } catch (t) { e = "" } } return e } setdata(t, e) { let s = !1; if (/^@/.test(e)) { const [, i, o] = /^@(.*?)\.(.*?)$/.exec(e), r = this.getval(i), a = i ? "null" === r ? null : r || "{}" : "{}"; try { const e = JSON.parse(a); this.lodash_set(e, o, t), s = this.setval(JSON.stringify(e), i) } catch (e) { const r = {}; this.lodash_set(r, o, t), s = this.setval(JSON.stringify(r), i) } } else s = this.setval(t, e); return s } getval(t) { switch (this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": return $persistentStore.read(t); case "Quantumult X": return $prefs.valueForKey(t); case "Node.js": return this.data = this.loaddata(), this.data[t]; default: return this.data && this.data[t] || null } } setval(t, e) { switch (this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": return $persistentStore.write(t, e); case "Quantumult X": return $prefs.setValueForKey(t, e); case "Node.js": return this.data = this.loaddata(), this.data[e] = t, this.writedata(), !0; default: return this.data && this.data[e] || null } } initGotEnv(t) { this.got = this.got ? this.got : require("got"), this.cktough = this.cktough ? this.cktough : require("tough-cookie"), this.ckjar = this.ckjar ? this.ckjar : new this.cktough.CookieJar, t && (t.headers = t.headers ? t.headers : {}, t && (t.headers = t.headers ? t.headers : {}, void 0 === t.headers.cookie && void 0 === t.headers.Cookie && void 0 === t.cookieJar && (t.cookieJar = this.ckjar))) } get(t, e = (() => { })) { switch (t.headers && (delete t.headers["Content-Type"], delete t.headers["Content-Length"], delete t.headers["content-type"], delete t.headers["content-length"]), t.params && (t.url += "?" + this.queryStr(t.params)), void 0 === t.followRedirect || t.followRedirect || ((this.isSurge() || this.isLoon()) && (t["auto-redirect"] = !1), this.isQuanX() && (t.opts ? t.opts.redirection = !1 : t.opts = { redirection: !1 })), this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": default: this.isSurge() && this.isNeedRewrite && (t.headers = t.headers || {}, Object.assign(t.headers, { "X-Surge-Skip-Scripting": !1 })), $httpClient.get(t, ((t, s, i) => { !t && s && (s.body = i, s.statusCode = s.status ? s.status : s.statusCode, s.status = s.statusCode), e(t, s, i) })); break; case "Quantumult X": this.isNeedRewrite && (t.opts = t.opts || {}, Object.assign(t.opts, { hints: !1 })), $task.fetch(t).then((t => { const { statusCode: s, statusCode: i, headers: o, body: r, bodyBytes: a } = t; e(null, { status: s, statusCode: i, headers: o, body: r, bodyBytes: a }, r, a) }), (t => e(t && t.error || "UndefinedError"))); break; case "Node.js": let s = require("iconv-lite"); this.initGotEnv(t), this.got(t).on("redirect", ((t, e) => { try { if (t.headers["set-cookie"]) { const s = t.headers["set-cookie"].map(this.cktough.Cookie.parse).toString(); s && this.ckjar.setCookieSync(s, null), e.cookieJar = this.ckjar } } catch (t) { this.logErr(t) } })).then((t => { const { statusCode: i, statusCode: o, headers: r, rawBody: a } = t, n = s.decode(a, this.encoding); e(null, { status: i, statusCode: o, headers: r, rawBody: a, body: n }, n) }), (t => { const { message: i, response: o } = t; e(i, o, o && s.decode(o.rawBody, this.encoding)) })); break } } post(t, e = (() => { })) { const s = t.method ? t.method.toLocaleLowerCase() : "post"; switch (t.body && t.headers && !t.headers["Content-Type"] && !t.headers["content-type"] && (t.headers["content-type"] = "application/x-www-form-urlencoded"), t.headers && (delete t.headers["Content-Length"], delete t.headers["content-length"]), void 0 === t.followRedirect || t.followRedirect || ((this.isSurge() || this.isLoon()) && (t["auto-redirect"] = !1), this.isQuanX() && (t.opts ? t.opts.redirection = !1 : t.opts = { redirection: !1 })), this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": default: this.isSurge() && this.isNeedRewrite && (t.headers = t.headers || {}, Object.assign(t.headers, { "X-Surge-Skip-Scripting": !1 })), $httpClient[s](t, ((t, s, i) => { !t && s && (s.body = i, s.statusCode = s.status ? s.status : s.statusCode, s.status = s.statusCode), e(t, s, i) })); break; case "Quantumult X": t.method = s, this.isNeedRewrite && (t.opts = t.opts || {}, Object.assign(t.opts, { hints: !1 })), $task.fetch(t).then((t => { const { statusCode: s, statusCode: i, headers: o, body: r, bodyBytes: a } = t; e(null, { status: s, statusCode: i, headers: o, body: r, bodyBytes: a }, r, a) }), (t => e(t && t.error || "UndefinedError"))); break; case "Node.js": let i = require("iconv-lite"); this.initGotEnv(t); const { url: o, ...r } = t; this.got[s](o, r).then((t => { const { statusCode: s, statusCode: o, headers: r, rawBody: a } = t, n = i.decode(a, this.encoding); e(null, { status: s, statusCode: o, headers: r, rawBody: a, body: n }, n) }), (t => { const { message: s, response: o } = t; e(s, o, o && i.decode(o.rawBody, this.encoding)) })); break } } time(t, e = null) { const s = e ? new Date(e) : new Date; let i = { "M+": s.getMonth() + 1, "d+": s.getDate(), "H+": s.getHours(), "m+": s.getMinutes(), "s+": s.getSeconds(), "q+": Math.floor((s.getMonth() + 3) / 3), S: s.getMilliseconds() }; /(y+)/.test(t) && (t = t.replace(RegExp.$1, (s.getFullYear() + "").substr(4 - RegExp.$1.length))); for (let e in i) new RegExp("(" + e + ")").test(t) && (t = t.replace(RegExp.$1, 1 == RegExp.$1.length ? i[e] : ("00" + i[e]).substr(("" + i[e]).length))); return t } queryStr(t) { let e = ""; for (const s in t) { let i = t[s]; null != i && "" !== i && ("object" == typeof i && (i = JSON.stringify(i)), e += `${s}=${i}&`) } return e = e.substring(0, e.length - 1), e } msg(e = t, s = "", i = "", o = {}) { const r = t => { const { $open: e, $copy: s, $media: i, $mediaMime: o } = t; switch (typeof t) { case void 0: return t; case "string": switch (this.getEnv()) { case "Surge": case "Stash": default: return { url: t }; case "Loon": case "Shadowrocket": return t; case "Quantumult X": return { "open-url": t }; case "Node.js": return }case "object": switch (this.getEnv()) { case "Surge": case "Stash": case "Shadowrocket": default: { const r = {}; let a = t.openUrl || t.url || t["open-url"] || e; a && Object.assign(r, { action: "open-url", url: a }); let n = t["update-pasteboard"] || t.updatePasteboard || s; if (n && Object.assign(r, { action: "clipboard", text: n }), i) { let t, e, s; if (i.startsWith("http")) t = i; else if (i.startsWith("data:")) { const [t] = i.split(";"), [, o] = i.split(","); e = o, s = t.replace("data:", "") } else { e = i, s = (t => { const e = { JVBERi0: "application/pdf", R0lGODdh: "image/gif", R0lGODlh: "image/gif", iVBORw0KGgo: "image/png", "/9j/": "image/jpg" }; for (var s in e) if (0 === t.indexOf(s)) return e[s]; return null })(i) } Object.assign(r, { "media-url": t, "media-base64": e, "media-base64-mime": o ?? s }) } return Object.assign(r, { "auto-dismiss": t["auto-dismiss"], sound: t.sound }), r } case "Loon": { const s = {}; let o = t.openUrl || t.url || t["open-url"] || e; o && Object.assign(s, { openUrl: o }); let r = t.mediaUrl || t["media-url"]; return i?.startsWith("http") && (r = i), r && Object.assign(s, { mediaUrl: r }), console.log(JSON.stringify(s)), s } case "Quantumult X": { const o = {}; let r = t["open-url"] || t.url || t.openUrl || e; r && Object.assign(o, { "open-url": r }); let a = t["media-url"] || t.mediaUrl; i?.startsWith("http") && (a = i), a && Object.assign(o, { "media-url": a }); let n = t["update-pasteboard"] || t.updatePasteboard || s; return n && Object.assign(o, { "update-pasteboard": n }), console.log(JSON.stringify(o)), o } case "Node.js": return }default: return } }; if (!this.isMute) switch (this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": default: $notification.post(e, s, i, r(o)); break; case "Quantumult X": $notify(e, s, i, r(o)); break; case "Node.js": break }if (!this.isMuteLog) { let t = ["", "==============📣系统通知📣=============="]; t.push(e), s && t.push(s), i && t.push(i), console.log(t.join("\n")), this.logs = this.logs.concat(t) } } debug(...t) { this.logLevels[this.logLevel] <= this.logLevels.debug && (t.length > 0 && (this.logs = [...this.logs, ...t]), console.log(`${this.logLevelPrefixs.debug}${t.map((t => t ?? String(t))).join(this.logSeparator)}`)) } info(...t) { this.logLevels[this.logLevel] <= this.logLevels.info && (t.length > 0 && (this.logs = [...this.logs, ...t]), console.log(`${this.logLevelPrefixs.info}${t.map((t => t ?? String(t))).join(this.logSeparator)}`)) } warn(...t) { this.logLevels[this.logLevel] <= this.logLevels.warn && (t.length > 0 && (this.logs = [...this.logs, ...t]), console.log(`${this.logLevelPrefixs.warn}${t.map((t => t ?? String(t))).join(this.logSeparator)}`)) } error(...t) { this.logLevels[this.logLevel] <= this.logLevels.error && (t.length > 0 && (this.logs = [...this.logs, ...t]), console.log(`${this.logLevelPrefixs.error}${t.map((t => t ?? String(t))).join(this.logSeparator)}`)) } log(...t) { t.length > 0 && (this.logs = [...this.logs, ...t]), console.log(t.map((t => t ?? String(t))).join(this.logSeparator)) } logErr(t, e) { switch (this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": case "Quantumult X": default: this.log("", `❗️${this.name}, 错误!`, e, t); break; case "Node.js": this.log("", `❗️${this.name}, 错误!`, e, void 0 !== t.message ? t.message : t, t.stack); break } } wait(t) { return new Promise((e => setTimeout(e, t))) } done(t = {}) { const e = ((new Date).getTime() - this.startTime) / 1e3; switch (this.log("", `🔔${this.name}, 结束! 🕛 ${e} 秒`), this.log(), this.getEnv()) { case "Surge": case "Loon": case "Stash": case "Shadowrocket": case "Quantumult X": default: $done(t); break; case "Node.js": process.exit(1) } } }(t, e) }
